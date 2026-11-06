@@ -4,7 +4,7 @@ Our own salon management system, which will eventually replace the third-party b
 
 ## Phase 1 (current): the basic records
 - **Clients**: contact info, preferred stylist, allergies, color formulas, notes, text/email opt-ins, and the client's ID in the old system
-- **Staff**: role, calendar color, pay structure (commission, hourly, booth rent or salary), and the services each person performs
+- **Staff (full stylist profile)**: profile and level, online booking bio, services with per-stylist pricing, weekly hours and time off, pay structure, employment and reviews, license and certifications (with expiry alerts), emergency contact, and an onboarding checklist
 - **Services**: category, duration, price, processing time
 - **Data**: CSV import from the current platform (columns matched automatically, duplicates skipped), JSON backup and restore, and CSV export
 

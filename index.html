@@ -69,12 +69,33 @@
   .field label.lbl { display:block; font-size:13px; color:var(--muted); margin-bottom:4px; font-weight:600; }
   .field .hint { font-size:12px; color:var(--muted); margin-top:4px; }
   .field.check label { display:flex; align-items:center; font-size:15px; }
-  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:0 10px; }
+  .grid2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:0 10px; }
+  input, select { min-width:0; }
+  input[type=date], input[type=time] { -webkit-appearance:none; appearance:none; min-height:42px; }
   .section-title { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
     margin:18px 0 8px; font-weight:700; }
   .checks { display:flex; flex-wrap:wrap; gap:6px; }
   .checks label { display:flex; align-items:center; background:var(--card); border:1px solid var(--line);
     border-radius:99px; padding:6px 12px; font-size:14px; }
+  details.group { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); margin-bottom:10px; }
+  details.group > summary { list-style:none; cursor:pointer; padding:12px 14px; font-weight:700; display:flex; justify-content:space-between; }
+  details.group > summary::-webkit-details-marker { display:none; }
+  details.group > summary::after { content:"▾"; color:var(--muted); }
+  details.group:not([open]) > summary::after { content:"▸"; }
+  details.group > .group-body { padding:0 14px 6px; }
+  details.group .hint-top { font-size:12px; color:var(--muted); margin:-4px 0 10px; }
+  .wh { display:grid; grid-template-columns:70px 1fr 1fr; gap:6px 8px; align-items:center; margin-bottom:12px; }
+  .wh label { display:flex; align-items:center; font-size:14px; font-weight:600; }
+  .wh input[type=time] { padding:8px; }
+  .wh .off { color:var(--muted); font-size:13px; grid-column:span 2; }
+  .svc-row { display:grid; grid-template-columns:1fr 84px 74px; gap:6px; align-items:center; margin-bottom:6px; font-size:14px; }
+  .svc-row label { display:flex; align-items:center; }
+  .svc-row input[type=number] { padding:8px; }
+  .rep-row { border:1px solid var(--line); border-radius:10px; padding:10px; margin-bottom:8px; position:relative; }
+  .rep-row .rm { position:absolute; top:6px; right:6px; padding:2px 8px; background:none; color:var(--danger); font-size:18px; }
+  .rep-row .field { margin-bottom:8px; }
+  .tag.warn { background:#f6e3c5; color:#7a4b00; }
+  .tag.bad { background:#f5d2cf; color:#8c1d16; }
   .map-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; align-items:center; margin-bottom:6px; font-size:14px; }
   .toast { position:fixed; left:50%; bottom:calc(var(--tabbar) + 20px); transform:translateX(-50%);
     background:var(--ink); color:var(--bg); padding:10px 16px; border-radius:99px; z-index:20;
@@ -115,6 +136,9 @@
    ===================================================================== */
 const ROLES = ["Stylist","Colorist","Barber","Nail Tech","Esthetician","Assistant","Front Desk","Manager","Owner"];
 const PAY_TYPES = ["Commission","Hourly","Hourly + Commission","Booth Rent","Salary"];
+const LEVELS = ["Apprentice","New talent","Stylist","Senior","Master","Educator","Owner"];
+const DAYS = [["mon","Mon"],["tue","Tue"],["wed","Wed"],["thu","Thu"],["fri","Fri"],["sat","Sat"],["sun","Sun"]];
+const COMPLEX_TYPES = new Set(["multiref","services_offered","weekly_hours","repeater"]);
 const PALETTE = ["#8a5a44","#3f6e8c","#6b8e4e","#a8577e","#c28a2c","#5b5fa8","#3d8a80","#b0533c"];
 
 const SCHEMA = {
@@ -148,32 +172,90 @@ const SCHEMA = {
   staff: {
     label: "Staff", singular: "Team member",
     fields: [
-      { section: "Basics" },
+      { section: "Profile" },
       { key:"first_name",   label:"First name", type:"text", required:true, half:true },
       { key:"last_name",    label:"Last name",  type:"text", half:true },
       { key:"display_name", label:"Name shown to clients", type:"text", half:true, hint:"Optional, e.g. “Jess R.”" },
+      { key:"pronouns",     label:"Pronouns", type:"text", half:true },
       { key:"role",         label:"Role", type:"select", options:ROLES, half:true },
-      { key:"phone",        label:"Phone", type:"tel", half:true },
+      { key:"level",        label:"Stylist level", type:"select", options:LEVELS, half:true, hint:"Used for level-based pricing." },
+      { key:"phone",        label:"Mobile phone", type:"tel", half:true },
       { key:"email",        label:"Email", type:"email", half:true },
-      { key:"start_date",   label:"Start date", type:"date", half:true },
+      { key:"birthday",     label:"Birthday", type:"date", half:true },
       { key:"calendar_color", label:"Calendar color", type:"color", half:true },
       { key:"active",       label:"Currently active", type:"checkbox", default:true },
+
+      { section: "Online booking profile", hint: "What clients will see on the booking page." },
+      { key:"bookable_online", label:"Clients can book online with this person", type:"checkbox", default:true },
+      { key:"bio",          label:"Bio", type:"textarea" },
+      { key:"specialties",  label:"Specialties", type:"text", hint:"e.g. Balayage, curly cuts, extensions" },
+      { key:"instagram",    label:"Instagram handle", type:"text", half:true },
+      { key:"photo_url",    label:"Photo link", type:"url", half:true },
+
+      { section: "Services & pricing", hint: "Tick what they perform. Leave price/time blank to use the menu default." },
+      { key:"services_offered", label:"", type:"services_offered" },
+
+      { section: "Weekly schedule", hint: "Regular working hours. Used for the booking calendar." },
+      { key:"weekly_hours", label:"", type:"weekly_hours" },
+      { key:"time_off", label:"Time off", type:"repeater", addLabel:"+ Add time off", subfields:[
+        { key:"start", label:"From", type:"date", half:true }, { key:"end", label:"To", type:"date", half:true },
+        { key:"reason", label:"Reason", type:"select", options:["Vacation","Sick","Personal","Education","Other"], half:true },
+        { key:"note", label:"Note", type:"text", half:true } ] },
+
       { section: "Pay structure" },
       { key:"pay_type",       label:"Pay type", type:"select", options:PAY_TYPES },
       { key:"commission_pct", label:"Service commission %", type:"number", step:"0.5", half:true, showIf: r => /Commission/.test(r.pay_type||"") },
       { key:"product_commission_pct", label:"Retail commission %", type:"number", step:"0.5", half:true, showIf: r => /Commission/.test(r.pay_type||"") },
+      { key:"backbar_fee_pct", label:"Product/backbar fee %", type:"number", step:"0.5", half:true, showIf: r => /Commission/.test(r.pay_type||""), hint:"Deducted from service sales before commission, if you use one." },
       { key:"hourly_rate",    label:"Hourly rate ($)", type:"number", step:"0.01", half:true, showIf: r => /Hourly/.test(r.pay_type||"") },
       { key:"booth_rent_weekly", label:"Booth rent per week ($)", type:"number", step:"0.01", half:true, showIf: r => r.pay_type === "Booth Rent" },
       { key:"salary_annual",  label:"Annual salary ($)", type:"number", step:"1", half:true, showIf: r => r.pay_type === "Salary" },
-      { section: "Services they perform" },
-      { key:"service_ids", label:"", type:"multiref", ref:"services" },
+      { key:"tip_payout",     label:"Card tips paid out", type:"select", options:["With payroll","Daily","Weekly"], half:true, showIf: r => r.pay_type !== "Booth Rent" },
+
+      { section: "Employment" },
+      { key:"employment_type", label:"Classification", type:"select", options:["W-2 employee","1099 contractor","Booth renter"], half:true },
+      { key:"hours_type",   label:"Full / part time", type:"select", options:["Full time","Part time"], half:true },
+      { key:"start_date",   label:"Start date", type:"date", half:true },
+      { key:"end_date",     label:"End date", type:"date", half:true },
+      { key:"reviews", label:"Reviews & check-ins", type:"repeater", addLabel:"+ Add review", subfields:[
+        { key:"date", label:"Date", type:"date", half:true }, { key:"type", label:"Type", type:"select", options:["90-day","Annual","Level-up","Check-in","Write-up"], half:true },
+        { key:"note", label:"Notes", type:"textarea" } ] },
+
+      { section: "License & certifications" },
+      { key:"license_type",   label:"License type", type:"select", options:["Cosmetology","Barber","Esthetician","Nail technician","Apprentice / trainee","Instructor"], half:true },
+      { key:"license_state",  label:"State", type:"text", half:true },
+      { key:"license_number", label:"License number", type:"text", half:true },
+      { key:"license_expires", label:"Expires", type:"date", half:true, hint:"Flags the stylist 60 days before expiry." },
+      { key:"certifications", label:"Certifications & education", type:"repeater", addLabel:"+ Add certification", subfields:[
+        { key:"name", label:"Name", type:"text" },
+        { key:"date", label:"Completed", type:"date", half:true }, { key:"expires", label:"Expires", type:"date", half:true } ] },
+
+      { section: "Emergency contact" },
+      { key:"ec_name",     label:"Name", type:"text", half:true },
+      { key:"ec_relation", label:"Relationship", type:"text", half:true },
+      { key:"ec_phone",    label:"Phone", type:"tel" },
+
+      { section: "Onboarding checklist", hint: "Tick when it's on file. Keep the documents themselves with payroll or in a locked file, not here." },
+      { key:"doc_w4",       label:"W-4 / W-9 on file", type:"checkbox" },
+      { key:"doc_i9",       label:"I-9 completed", type:"checkbox" },
+      { key:"doc_license_copy", label:"Copy of license on file", type:"checkbox" },
+      { key:"doc_handbook", label:"Handbook signed", type:"checkbox" },
+      { key:"doc_agreement", label:"Employment / rental agreement signed", type:"checkbox" },
+      { key:"doc_direct_deposit", label:"Direct deposit set up with payroll", type:"checkbox" },
+
       { section: "Other" },
       { key:"notes",       label:"Notes", type:"textarea" },
       { key:"external_id", label:"ID in old system", type:"text" },
     ],
     title: r => staffName(r),
-    sub: r => [r.role, r.pay_type].filter(Boolean).join(" · "),
-    right: r => r.active === false ? '<span class="tag">Inactive</span>' : "",
+    sub: r => [r.role, r.level, r.pay_type].filter(Boolean).join(" · "),
+    right: r => {
+      if (r.active === false) return '<span class="tag">Inactive</span>';
+      const d = r.license_expires ? (new Date(r.license_expires) - new Date()) / 864e5 : Infinity;
+      if (d < 0) return '<span class="tag bad">License expired</span>';
+      if (d < 60) return '<span class="tag warn">License expiring</span>';
+      return "";
+    },
     rightIsHtml: true,
     dot: r => r.calendar_color,
     sort: (a,b) => (b.active!==false) - (a.active!==false) || (a.first_name||"").localeCompare(b.first_name||""),
@@ -214,6 +296,11 @@ const DB = (() => {
     catch (e) { data = blank(); }
     for (const t of Object.keys(SCHEMA)) data[t] = data[t] || [];
     data.meta = data.meta || blank().meta;
+    // v1 → v2: staff.service_ids became services_offered (with per-stylist price/time)
+    for (const s of data.staff) if (Array.isArray(s.service_ids) && !s.services_offered) {
+      s.services_offered = s.service_ids.map(id => ({ service_id: id })); delete s.service_ids;
+    }
+    data.meta.schema_version = 2;
   }
   function persist() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); return true; }
@@ -236,7 +323,7 @@ const DB = (() => {
     exportAll: () => JSON.parse(JSON.stringify({ ...data, meta: { ...data.meta, exported_at: now() } })),
     replaceAll(obj) {
       if (!obj || typeof obj !== "object" || !Array.isArray(obj.clients)) throw new Error("Not a Salon Hub backup file");
-      data = { ...blank(), ...obj }; persist();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...blank(), ...obj })); load(); persist();
     },
     wipe() { data = blank(); persist(); },
   };
@@ -315,7 +402,7 @@ function fieldHtml(f, rec) {
   const lbl = f.label ? `<label class="lbl" for="${id}">${esc(f.label)}${f.required ? " *" : ""}</label>` : "";
   switch (f.type) {
     case "textarea": return `${wrapStart}${lbl}<textarea id="${id}" name="${f.key}">${esc(v)}</textarea>${hint}</div>`;
-    case "checkbox": return `${wrapStart}<label><input type="checkbox" id="${id}" name="${f.key}" ${(rec.id ? rec[f.key] : (rec[f.key] ?? f.default)) ? "checked" : ""}>${esc(f.label)}</label>${hint}</div>`;
+    case "checkbox": return `${wrapStart}<label><input type="checkbox" id="${id}" name="${f.key}" ${(rec[f.key] ?? f.default) ? "checked" : ""}>${esc(f.label)}</label>${hint}</div>`;
     case "select": return `${wrapStart}${lbl}<select id="${id}" name="${f.key}"><option value="">—</option>${f.options.map(o => `<option ${o === v ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>${hint}</div>`;
     case "ref": {
       const opts = DB.list(f.ref).filter(r => r.active !== false || r.id === v).sort(SCHEMA[f.ref].sort);
@@ -326,20 +413,72 @@ function fieldHtml(f, rec) {
       if (!opts.length) return `${wrapStart}<div class="hint">Add services in the Services tab, then come back to assign them.</div></div>`;
       return `${wrapStart}${lbl}<div class="checks">${opts.map(o => `<label><input type="checkbox" name="${f.key}" value="${esc(o.id)}" ${sel.has(o.id) ? "checked" : ""}>${esc(SCHEMA[f.ref].title(o))}</label>`).join("")}</div>${hint}</div>`;
     }
+    case "services_offered": {
+      const offered = Object.fromEntries((rec[f.key] || []).map(o => [o.service_id, o]));
+      const svcs = DB.list("services").sort(SCHEMA.services.sort);
+      if (!svcs.length) return `${wrapStart}<div class="hint">Add your service menu in the Services tab, then come back to assign services.</div></div>`;
+      return `${wrapStart}<div class="svc-row" style="color:var(--muted);font-size:12px;font-weight:700"><span>Service</span><span>Price $</span><span>Min</span></div>
+        ${svcs.map(s => { const o = offered[s.id]; return `<div class="svc-row" data-svc="${esc(s.id)}">
+          <label><input type="checkbox" class="svc-on" ${o ? "checked" : ""}>${esc(s.name)}</label>
+          <input type="number" class="svc-price" step="0.01" inputmode="decimal" placeholder="${esc(s.price ?? "")}" value="${esc(o?.price ?? "")}">
+          <input type="number" class="svc-dur" step="5" inputmode="numeric" placeholder="${esc(s.duration_min ?? "")}" value="${esc(o?.duration_min ?? "")}">
+        </div>`; }).join("")}</div>`;
+    }
+    case "weekly_hours": {
+      const wh = rec[f.key] || {};
+      return `${wrapStart}<div class="wh">${DAYS.map(([d, name]) => { const x = wh[d] || {}; const on = x.on ?? d !== "sun";
+        return `<label><input type="checkbox" data-day="${d}" class="wh-on" ${on ? "checked" : ""}>${name}</label>
+          <input type="time" data-day="${d}" class="wh-start" value="${esc(x.start || "09:00")}">
+          <input type="time" data-day="${d}" class="wh-end" value="${esc(x.end || "17:00")}">`; }).join("")}</div></div>`;
+    }
+    case "repeater": {
+      const rows = rec[f.key] || [];
+      return `${wrapStart}${lbl}<div class="rep-list">${rows.map(r => repRowHtml(f, r)).join("")}</div>
+        <button type="button" onclick="addRepRow('${f.key}', this)">${esc(f.addLabel || "+ Add")}</button>${hint}</div>`;
+    }
     default: {
-      const extra = (f.step ? ` step="${f.step}" inputmode="decimal"` : "") + (f.list ? ` list="${f.list}"` : "");
+      const extra =(f.step ? ` step="${f.step}" inputmode="decimal"` : "") + (f.list ? ` list="${f.list}"` : "");
       const val = f.type === "color" && !v ? PALETTE[DB.list("staff").length % PALETTE.length] : v;
       return `${wrapStart}${lbl}<input id="${id}" name="${f.key}" type="${f.type}" value="${esc(val)}"${req}${extra}>${hint}</div>`;
     }
   }
 }
 
-// Group consecutive half-width fields into 2-column rows.
-function layoutFields(fields, rec) {
-  let out = "", buf = [];
+function repRowHtml(f, row = {}) {
+  const inner = layoutFields(f.subfields.map(s => ({ ...s, _sub: true })), row, true);
+  return `<div class="rep-row">${inner}<button type="button" class="rm" onclick="this.parentElement.remove()" aria-label="Remove">×</button></div>`;
+}
+function addRepRow(key, btn) {
+  const f = Object.values(SCHEMA).flatMap(s => s.fields).find(x => x.key === key && x.type === "repeater");
+  btn.previousElementSibling.insertAdjacentHTML("beforeend", repRowHtml(f, {}));
+}
+
+// Fields grouped into collapsible sections; consecutive half-width fields share a row.
+function layoutFields(fields, rec, flat = false) {
+  let out = "", buf = [], groupOpen = false, gi = 0;
   const flush = () => { if (buf.length) { out += `<div class="grid2">${buf.join("")}</div>`; buf = []; } };
-  for (const f of fields) { const h = fieldHtml(f, rec); if (f.half) buf.push(h); else { flush(); out += h; } }
-  flush(); return out;
+  for (const f of fields) {
+    if (f.section && !flat) {
+      flush(); if (groupOpen) out += `</div></details>`;
+      const open = !rec.id || gi === 0; gi++;
+      out += `<details class="group"${open ? " open" : ""}><summary>${esc(f.section)}</summary><div class="group-body">${f.hint ? `<div class="hint-top">${esc(f.hint)}</div>` : ""}`;
+      groupOpen = true; continue;
+    }
+    const h = f._sub ? subFieldHtml(f, rec) : fieldHtml(f, rec);
+    if (f.half) buf.push(h); else { flush(); out += h; }
+  }
+  flush(); if (groupOpen) out += `</div></details>`;
+  return out;
+}
+// Sub-fields inside repeater rows use data-sub instead of name, so they don't collide across rows.
+function subFieldHtml(f, row) {
+  const v = row[f.key] ?? "";
+  const lbl = `<label class="lbl">${esc(f.label)}</label>`;
+  let input;
+  if (f.type === "select") input = `<select data-sub="${f.key}"><option value="">—</option>${f.options.map(o => `<option ${o === v ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
+  else if (f.type === "textarea") input = `<textarea data-sub="${f.key}">${esc(v)}</textarea>`;
+  else input = `<input data-sub="${f.key}" type="${f.type}" value="${esc(v)}">`;
+  return `<div class="field">${lbl}${input}</div>`;
 }
 
 function readForm(t, form) {
@@ -348,6 +487,19 @@ function readForm(t, form) {
     if (!f.key) continue;
     if (f.type === "checkbox") rec[f.key] = !!form.elements[f.key]?.checked;
     else if (f.type === "multiref") rec[f.key] = $$(`input[name="${f.key}"]:checked`, form).map(i => i.value);
+    else if (f.type === "services_offered") {
+      const num = el => el.value === "" ? "" : Number(el.value);
+      rec[f.key] = $$(`.field[data-key="${f.key}"] .svc-row[data-svc]`, form).filter(r => $(".svc-on", r).checked)
+        .map(r => ({ service_id: r.dataset.svc, price: num($(".svc-price", r)), duration_min: num($(".svc-dur", r)) }));
+    }
+    else if (f.type === "weekly_hours") {
+      const box = $(`.field[data-key="${f.key}"]`, form); rec[f.key] = {};
+      for (const [d] of DAYS) rec[f.key][d] = { on: $(`.wh-on[data-day="${d}"]`, box).checked, start: $(`.wh-start[data-day="${d}"]`, box).value, end: $(`.wh-end[data-day="${d}"]`, box).value };
+    }
+    else if (f.type === "repeater") {
+      rec[f.key] = $$(`.field[data-key="${f.key}"] .rep-row`, form).map(row => Object.fromEntries($$("[data-sub]", row).map(i => [i.dataset.sub, i.value.trim()])))
+        .filter(o => Object.values(o).some(Boolean));
+    }
     else if (f.type === "number") { const s = form.elements[f.key]?.value; rec[f.key] = s === "" || s == null ? "" : Number(s); }
     else rec[f.key] = (form.elements[f.key]?.value ?? "").trim();
   }
@@ -391,7 +543,7 @@ function openForm(t, id) {
     DB.remove(t, id);
     // clean up references to deleted records
     if (t === "staff") DB.list("clients").filter(c => c.preferred_staff_id === id).forEach(c => DB.upsert("clients", { ...c, preferred_staff_id: "" }));
-    if (t === "services") DB.list("staff").filter(s => (s.service_ids || []).includes(id)).forEach(s => DB.upsert("staff", { ...s, service_ids: s.service_ids.filter(x => x !== id) }));
+    if (t === "services") DB.list("staff").filter(s => (s.services_offered || []).some(o => o.service_id === id)).forEach(s => DB.upsert("staff", { ...s, services_offered: s.services_offered.filter(o => o.service_id !== id) }));
     closeSheet(); render(); toast("Deleted");
   };
 }
@@ -496,7 +648,7 @@ const ALIASES = {
   preferred_staff_id: ["preferredstaff","preferredstylist","stylist","provider","preferredprovider"],
 };
 function importableFields(t) {
-  const base = SCHEMA[t].fields.filter(f => f.key && f.type !== "multiref").map(f => ({ key: f.key, label: f.label }));
+  const base = SCHEMA[t].fields.filter(f => f.key && !COMPLEX_TYPES.has(f.type)).map(f => ({ key: f.key, label: f.label }));
   if (t !== "services") base.unshift({ key: "_full_name", label: "Full name (split into first/last)" });
   return base;
 }
@@ -573,6 +725,9 @@ function exportCsv(t) {
     if (f.type === "ref") { const x = DB.get(f.ref, v); return x ? SCHEMA[f.ref].title(x) : ""; }
     if (f.type === "multiref") return (v || []).map(id => DB.get(f.ref, id)).filter(Boolean).map(SCHEMA[f.ref].title).join("; ");
     if (f.type === "checkbox") return v ? "Yes" : "No";
+    if (f.type === "services_offered") return (v || []).map(o => { const s = DB.get("services", o.service_id); if (!s) return ""; const p = o.price !== "" && o.price != null ? ` ${money(o.price)}` : ""; return s.name + p; }).filter(Boolean).join("; ");
+    if (f.type === "weekly_hours") return DAYS.filter(([d]) => v?.[d]?.on).map(([d, n]) => `${n} ${v[d].start}-${v[d].end}`).join("; ");
+    if (f.type === "repeater") return (v || []).map(o => Object.values(o).filter(Boolean).join(" ")).join("; ");
     return v ?? "";
   };
   download(`${t}-${today()}.csv`, toCsv([["id", ...fields.map(f => f.label)], ...rows.map(r => [r.id, ...fields.map(f => cell(f, r))])]), "text/csv");
