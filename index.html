@@ -313,8 +313,9 @@ const SCHEMA = {
       { key:"price",        label:"Price ($)", type:"number", step:"0.01", half:true },
       { key:"price_from",   label:"Price is a starting price (“from $…”)", type:"checkbox" },
       { key:"processing_min", label:"Processing time (min)", type:"number", step:"5", half:true, hint:"Time the stylist is free mid-service (e.g. color processing)." },
-      { key:"active",       label:"Offered / bookable", type:"checkbox", default:true },
-      { key:"description",  label:"Description", type:"textarea" },
+      { key:"active",       label:"Currently offered", type:"checkbox", default:true },
+      { key:"book_online",  label:"Clients can book this online", type:"checkbox", default:true },
+      { key:"description",  label:"Description", type:"textarea", hint:"Shown on the online booking page." },
       { key:"external_id",  label:"ID in old system", type:"text" },
     ],
     title: r => r.name || "(unnamed)",
@@ -465,7 +466,7 @@ const SCHEMA = {
       { key:"buffer_min", label:"Buffer between appts (min)", type:"number", step:"5", default:0, half:true },
       { key:"min_notice_hours", label:"Min notice to book (hours)", type:"number", step:"1", default:2, half:true },
       { key:"max_days_ahead", label:"Book up to (days ahead)", type:"number", step:"1", default:90, half:true },
-      { key:"online_booking", label:"Online booking turned on", type:"checkbox", default:false },
+      { key:"online_booking", label:"Online booking turned on", type:"checkbox", default:false, hint:"Your booking page: More → Online booking link." },
       { key:"new_clients_online", label:"New clients can book online", type:"checkbox", default:true },
       { section: "Deposits & cancellations" },
       { key:"deposit_required", label:"Require a deposit to book", type:"checkbox" },
@@ -759,7 +760,7 @@ function renderCalendar() {
       return `<div class="appt${cancelled ? " cancelled" : ""}" data-id="${esc(a.id)}" style="border-left-color:${esc(s?.calendar_color || "var(--line)")}">
         <div class="time">${esc(fmtTime(a.start_time))}<small>${esc(fmtTime(a.end_time))}</small></div>
         <div style="min-width:0"><div class="who">${esc(SCHEMA.appointments.title(a))}</div>
-          <div class="what">${esc(serviceNames(a) || "No service")}${!calStaff && s ? " · " + esc(staffName(s)) : ""}</div></div>
+          <div class="what">${a.booked_via === "Online" ? "🌐 " : ""}${esc(serviceNames(a) || "No service")}${!calStaff && s ? " · " + esc(staffName(s)) : ""}</div></div>
         <div style="text-align:right"><span class="tag${tagCls}">${esc(a.status || "")}</span><div class="what">${esc(money(a.total_price))}</div></div>
       </div>`; }).join("")
     : `<div class="empty">No appointments${calStaff ? " for this stylist" : ""} on this day.</div>`}
@@ -803,6 +804,10 @@ function renderMore() {
     ["data", "💾", "Data & backup", "Import, export, backup"],
   ];
   $("#view").innerHTML = `<div class="more-grid">${tiles.map(([t, i, name, sub]) => `<div class="tile" onclick="go('${t}')"><div class="ico">${i}</div><b>${name}</b><span>${sub}</span></div>`).join("")}</div>
+    ${DB.mode() === "cloud" ? `<div class="card" style="margin-top:12px"><h2>🔗 Online booking page</h2>
+      <p>${DB.settings().online_booking ? "Share this link on Instagram, Google and your website." : "<b>Turned off.</b> Turn it on in Salon settings → Booking rules when you're ready."}</p>
+      <input readonly value="${esc(BOOK_URL)}" onclick="this.select()">
+      <div class="row" style="margin-top:8px"><button onclick="copyText(BOOK_URL)">Copy link</button><a href="${esc(BOOK_URL)}" target="_blank" rel="noopener"><button>Open</button></a></div></div>` : ""}
     <div class="notice">${DB.mode() === "cloud" ? `Signed in as ${esc(Cloud.user?.email || "")} (${esc(Cloud.role || "")}) · <button class="link" onclick="signOut()">Sign out</button>` : `Offline mode — data is saved on this device only. <button class="link" onclick="location.reload()">Sign in</button>`}</div>
     <div class="notice">Coming next: the client booking page, text reminders, and checkout.</div>`;
 }
@@ -981,6 +986,7 @@ function openForm(t, id, preset = {}) {
       <button class="primary" type="submit">Save</button></div>
     ${layoutFields(visibleFields(t, rec), rec)}
     ${t === "clients" && id ? visitHistory(id) : ""}
+    ${t === "staff" && id && DB.mode() === "cloud" && rec.bookable_online !== false ? `<div class="notice">Personal booking link: <button type="button" class="link" onclick="copyText(BOOK_URL + '?stylist=${esc(id)}')">copy</button></div>` : ""}
     <datalist id="categoryList">${cats.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
     <datalist id="brandList">${brands.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
     ${id ? `<div class="notice">Added ${new Date(rec.created_at).toLocaleDateString()} · Last updated ${new Date(rec.updated_at).toLocaleString()}</div>
@@ -1275,6 +1281,8 @@ function exportCsv(t) {
 
 /* ===================== Sign-in, setup & team ===================== */
 const SITE_URL = location.origin + location.pathname;
+const BOOK_URL = SITE_URL.replace(/[^/]*$/, "") + "book.html";
+async function copyText(t) { try { await navigator.clipboard.writeText(t); toast("Link copied"); } catch (e) { prompt("Copy this link:", t); } }
 const SQL_EDITOR = "https://supabase.com/dashboard/project/mhgjtsinlvmhhlchbkdd/sql/new";
 function showGate(html) { $("#gate").innerHTML = `<div class="gate-card"><div class="gate-logo">✂️ Salon Hub</div>${html}</div>`; $("#gate").style.display = "flex"; }
 function hideGate() { $("#gate").style.display = "none"; }

@@ -8,6 +8,7 @@ Our own salon management system, which will fully replace the third-party bookin
 - **Staff**: full stylist profile with booking bio, services and per-stylist pricing, weekly hours, time off, pay structure, employment and reviews, license and certifications (expiry alerts), emergency contact, and onboarding checklist.
 - **Services**: menu with category, duration, price and processing time.
 - **More**: retail products (stock and reorder alerts), gift cards (codes and balances), packages, membership plans, salon settings (hours, closures, booking rules, deposits, cancellation and no-show policy, tax, tips), and data tools.
+- **Online booking page** (`book.html`): clients pick services, a stylist (or no preference) and an open time, then enter their details. The server re-checks hours, closures, time off, buffers and double-booking, and matches returning clients by phone. Add `?stylist=ID` to link to a specific stylist.
 - **Data**: CSV import from the old platform for clients, staff, services, appointment history, products and gift cards; JSON backup and restore; CSV export.
 
 ## Where data lives
@@ -26,6 +27,7 @@ Payroll and tax details (SSNs, bank accounts) are kept with the payroll provider
 1. ✅ Records: clients, staff, services, products, gift cards, packages, memberships, settings
 2. ✅ Appointment calendar and visit history
 3. ✅ Hosted database and staff logins
-4. Online booking page for clients, plus text reminders
-5. Checkout through Stripe or Square, and commission reports exported to payroll
-6. Import full history, run alongside the old platform, then switch over
+4. ✅ Online booking page
+5. Text and email confirmations and reminders
+6. Checkout through Stripe or Square, and commission reports exported to payroll
+7. Import full history, run alongside the old platform, then switch over
