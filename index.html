@@ -6,6 +6,7 @@
 <meta name="robots" content="noindex">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Salon Hub</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --bg: #f6f4f1; --card: #fff; --ink: #1f1d1a; --muted: #77716a; --line: #e6e1da;
@@ -128,6 +129,14 @@
   .more-grid .tile span { color:var(--muted); font-size:13px; }
   .history .h-row { display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); font-size:14px; cursor:pointer; }
   .history .h-row:last-child { border-bottom:0; }
+  #gate { position:fixed; inset:0; z-index:30; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:24px; overflow:auto; }
+  .gate-card { width:100%; max-width:380px; }
+  .gate-logo { font-size:24px; font-weight:800; margin-bottom:18px; }
+  .gate-card h2 { margin:0 0 12px; }
+  .gate-card p { color:var(--muted); }
+  .gate-card .small { font-size:14px; }
+  .gate-card a { color:var(--accent); }
+  .steps { padding-left:20px; } .steps li { margin-bottom:14px; }
 </style>
 </head>
 <body>
@@ -152,6 +161,7 @@
 <div class="sheet-bg" id="sheetBg"></div>
 <div class="sheet" id="sheet"></div>
 <div class="toast" id="toast"></div>
+<div id="gate"><div class="gate-card"><div class="gate-logo">✂️ Salon Hub</div><p>Loading…</p></div></div>
 <input type="file" id="fileInput" hidden>
 
 <script>
@@ -476,59 +486,160 @@ const SCHEMA = {
   },
 };
 const LIST_TABLES = ["clients","staff","services","products","giftcards","packages","memberships"];
-const MORE_TABS = ["products","giftcards","packages","memberships","settings","data"];
+const MORE_TABS = ["products","giftcards","packages","memberships","settings","team","data"];
+const MANAGER_TABLES = new Set(["staff","services","packages","memberships"]);
+const canWrite = t => !MANAGER_TABLES.has(t) || Cloud.isManager();
 
 /* =====================================================================
    DATA LAYER — the ONLY place that touches storage.
-   Today: this browser's localStorage. Next: a hosted database with
-   logins; only this block changes.
+   • Cloud mode (normal): shared Supabase database, team logins.
+   • Local mode (fallback): this browser's localStorage only.
+   The rest of the app works the same in both.
    ===================================================================== */
-const STORAGE_KEY = "salonhub.v1";
+const SUPABASE_URL = "https://mhgjtsinlvmhhlchbkdd.supabase.co";
+const SUPABASE_KEY = "sb_publishable_JhGLHEK9fwKWZuoTgACedA_aYGjB7AT"; // publishable key: safe in a public site
+const STORAGE_KEY = "salonhub.v1", META_KEY = "salonhub.meta";
 const TABLES = Object.keys(SCHEMA).filter(t => t !== "settings");
+
+// Staff fields only owner/managers (and the person themself) can see.
+const PRIVATE_STAFF_SECTIONS = new Set(["Pay structure","Employment","Emergency contact","Onboarding checklist","Other"]);
+const PRIVATE_STAFF_KEYS = (() => { const s = new Set(["birthday","license_number"]); let sec = "";
+  for (const f of SCHEMA.staff.fields) { if (f.section) sec = f.section; else if (PRIVATE_STAFF_SECTIONS.has(sec)) s.add(f.key); }
+  s.delete("external_id"); return s; })();
+
 const DB = (() => {
-  let data;
+  let data, mode = "local";
   function blank() { return { meta: { schema_version: 3, created_at: now() }, settings: {} }; }
-  function load() {
-    try { data = JSON.parse(localStorage.getItem(STORAGE_KEY)) || blank(); }
-    catch (e) { data = blank(); }
-    for (const t of TABLES) data[t] = data[t] || [];
-    data.meta = data.meta || blank().meta;
-    data.settings = data.settings || {};
-    // migrations
-    for (const s of data.staff) if (Array.isArray(s.service_ids) && !s.services_offered) {
+  function normalize(d) {
+    d = d || blank();
+    for (const t of TABLES) d[t] = d[t] || [];
+    d.meta = d.meta || blank().meta; d.settings = d.settings || {};
+    for (const s of d.staff) if (Array.isArray(s.service_ids) && !s.services_offered) {
       s.services_offered = s.service_ids.map(id => ({ service_id: id })); delete s.service_ids;
     }
-    if (data.meta.salon_name && !data.settings.salon_name) { data.settings.salon_name = data.meta.salon_name; delete data.meta.salon_name; }
-    data.meta.schema_version = 3;
+    if (d.meta.salon_name && !d.settings.salon_name) { d.settings.salon_name = d.meta.salon_name; delete d.meta.salon_name; }
+    d.meta.schema_version = 3;
+    return d;
   }
+  function readLocal() { try { return normalize(JSON.parse(localStorage.getItem(STORAGE_KEY))); } catch (e) { return normalize(null); } }
   function persist() {
+    if (mode === "cloud") { try { localStorage.setItem(META_KEY, JSON.stringify(data.meta)); } catch (e) {} return true; }
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); return true; }
     catch (e) { toast("⚠️ Couldn't save — storage is full or blocked"); return false; }
   }
-  load();
+  data = readLocal();
   return {
+    mode: () => mode,
+    useCloud(remote) {
+      mode = "cloud";
+      let meta = {}; try { meta = JSON.parse(localStorage.getItem(META_KEY)) || {}; } catch (e) {}
+      data = normalize({ ...remote, meta: { schema_version: 3, ...meta } });
+    },
+    useLocal() { mode = "local"; data = readLocal(); },
+    localSnapshot: readLocal,
+    clearLocal() { localStorage.removeItem(STORAGE_KEY); },
     list: t => data[t].slice(),
     get: (t, id) => id ? data[t].find(r => r.id === id) : undefined,
     upsert(t, rec) {
       const i = data[t].findIndex(r => r.id === rec.id);
-      if (i >= 0) data[t][i] = { ...data[t][i], ...rec, updated_at: now() };
+      if (i >= 0) rec = data[t][i] = { ...data[t][i], ...rec, updated_at: now() };
       else { rec = { ...rec, id: rec.id || uid(), created_at: now(), updated_at: now() }; data[t].push(rec); }
-      persist(); return rec.id;
+      persist(); if (mode === "cloud") Cloud.save(t, [rec]);
+      return rec.id;
     },
-    bulkInsert(t, recs) { for (const r of recs) data[t].push({ id: uid(), ...r, created_at: now(), updated_at: now() }); persist(); },
-    remove(t, id) { data[t] = data[t].filter(r => r.id !== id); persist(); },
+    bulkInsert(t, recs) {
+      recs = recs.map(r => ({ id: uid(), ...r, created_at: r.created_at || now(), updated_at: now() }));
+      const ids = new Set(recs.map(r => r.id));
+      data[t] = data[t].filter(r => !ids.has(r.id)).concat(recs);
+      persist(); if (mode === "cloud") Cloud.save(t, recs);
+    },
+    remove(t, id) { data[t] = data[t].filter(r => r.id !== id); persist(); if (mode === "cloud") Cloud.remove(t, id); },
     meta: () => data.meta,
     setMeta(k, v) { data.meta[k] = v; persist(); },
     settings: () => data.settings,
-    saveSettings(s) { data.settings = { ...data.settings, ...s, updated_at: now() }; persist(); },
+    saveSettings(s) { data.settings = { ...data.settings, ...s, updated_at: now() }; persist(); if (mode === "cloud") Cloud.save("settings", [{ ...data.settings, id: "main" }]); },
     exportAll: () => JSON.parse(JSON.stringify({ ...data, meta: { ...data.meta, exported_at: now() } })),
     replaceAll(obj) {
       if (!obj || typeof obj !== "object" || !Array.isArray(obj.clients)) throw new Error("Not a Salon Hub backup file");
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(obj)); load(); persist();
+      obj = normalize(JSON.parse(JSON.stringify(obj)));
+      if (mode === "cloud") { for (const t of TABLES) if (obj[t].length) this.bulkInsert(t, obj[t]); if (obj.settings.salon_name) this.saveSettings(obj.settings); return; }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(obj)); data = readLocal(); persist();
     },
-    wipe() { localStorage.removeItem(STORAGE_KEY); load(); persist(); },
+    wipe() { localStorage.removeItem(STORAGE_KEY); data = readLocal(); persist(); },
   };
 })();
+
+/* ---------- Supabase connection ---------- */
+const Cloud = {
+  sb: null, user: null, role: null, staffId: null, pending: 0, loadedAt: 0,
+  isManager() { return DB.mode() === "local" || ["owner","manager"].includes(this.role); },
+  isOwner() { return DB.mode() === "local" || this.role === "owner"; },
+  rows(t, recs) {
+    // Staff records are split: public profile → staff, sensitive fields → staff_private
+    if (t === "staff") {
+      const pub = [], priv = [];
+      for (const r of recs) {
+        const a = {}, b = {};
+        for (const [k, v] of Object.entries(r)) (PRIVATE_STAFF_KEYS.has(k) ? b : a)[k] = v;
+        pub.push({ id: r.id, data: a });
+        if (Object.keys(b).length) priv.push({ id: r.id, data: b });
+      }
+      return [["staff", pub], ...(this.isManager() && priv.length ? [["staff_private", priv]] : [])];
+    }
+    return [[t, recs.map(r => ({ id: r.id, data: r }))]];
+  },
+  async save(t, recs) {
+    for (const [table, rows] of this.rows(t, recs)) {
+      for (let i = 0; i < rows.length; i += 500) {
+        this.pending++;
+        try {
+          const { error } = await this.sb.from(table).upsert(rows.slice(i, i + 500));
+          if (error) throw error;
+        } catch (e) { this.fail(e); }
+        finally { this.pending--; }
+      }
+    }
+  },
+  async remove(t, id) {
+    this.pending++;
+    try {
+      const { error } = await this.sb.from(t).delete().eq("id", id); if (error) throw error;
+      if (t === "staff") await this.sb.from("staff_private").delete().eq("id", id);
+    } catch (e) { this.fail(e); } finally { this.pending--; }
+  },
+  fail(e) {
+    console.error(e);
+    const msg = /row-level security|permission/i.test(e.message || "") ? "You don't have permission to change that" : (e.message || "network error");
+    toast("⚠️ Not saved to the server: " + msg);
+  },
+  async fetchAll(table) {
+    const out = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await this.sb.from(table).select("id,data").range(from, from + 999);
+      if (error) throw error;
+      out.push(...data); if (data.length < 1000) break;
+    }
+    return out.map(r => ({ ...r.data, id: r.id }));
+  },
+  async loadAll() {
+    const names = [...TABLES, "staff_private", "settings"];
+    const res = await Promise.all(names.map(n => this.fetchAll(n)));
+    const d = Object.fromEntries(names.map((n, i) => [n, res[i]]));
+    const priv = Object.fromEntries(d.staff_private.map(r => [r.id, r]));
+    d.staff = d.staff.map(s => ({ ...s, ...(priv[s.id] || {}), id: s.id }));
+    d.settings = d.settings.find(s => s.id === "main") || {}; delete d.settings.id;
+    delete d.staff_private;
+    this.loadedAt = Date.now();
+    return d;
+  },
+};
+window.addEventListener("beforeunload", e => { if (Cloud.pending > 0) { e.preventDefault(); e.returnValue = ""; } });
+document.addEventListener("visibilitychange", async () => {
+  // Pick up teammates' changes when the app comes back to the foreground
+  if (document.visibilityState !== "visible" || DB.mode() !== "cloud" || Date.now() - Cloud.loadedAt < 30000) return;
+  if ($("#sheet").classList.contains("open") || Cloud.pending) return;
+  try { DB.useCloud(await Cloud.loadAll()); render(); } catch (e) { console.error(e); }
+});
 
 /* ===================== helpers ===================== */
 function uid() { return (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)); }
@@ -574,16 +685,18 @@ function render() {
   const navTab = MORE_TABS.includes(tab) || tab === "more" ? "more" : tab;
   $$("nav.tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === navTab));
   $("#salonName").textContent = DB.settings().salon_name || "Salon Hub";
-  $("#tabTitle").textContent = { calendar: "Calendar", more: "More", data: "Data & backup" }[tab] || SCHEMA[tab]?.label || "";
+  $("#tabTitle").textContent = { calendar: "Calendar", more: "More", data: "Data & backup", team: "Team access" }[tab] || SCHEMA[tab]?.label || "";
   const isList = LIST_TABLES.includes(tab);
   $("#toolbar").style.display = isList || tab === "calendar" ? "" : "none";
   $("#search").style.display = isList ? "" : "none";
   $("#addBtn").textContent = tab === "calendar" ? "+ Book appointment" : "+ Add";
   $("#addBtn").style.flex = tab === "calendar" ? "1" : "";
+  $("#addBtn").style.display = isList && !canWrite(tab) ? "none" : "";
   if (tab === "calendar") renderCalendar();
   else if (tab === "more") renderMore();
   else if (tab === "data") renderData();
   else if (tab === "settings") renderSettings();
+  else if (tab === "team") renderTeam();
   else renderList();
 }
 const backLink = () => MORE_TABS.includes(tab) ? `<button class="back" onclick="go('more')">‹ More</button>` : "";
@@ -686,15 +799,17 @@ function renderMore() {
     ["packages", "📦", "Packages", `${n("packages")} packages`],
     ["memberships", "⭐", "Memberships", `${n("memberships")} plans`],
     ["settings", "🏠", "Salon settings", "Hours, policies, tax"],
+    ["team", "🔑", "Team access", DB.mode() === "cloud" ? "Logins & permissions" : "Needs sign-in"],
     ["data", "💾", "Data & backup", "Import, export, backup"],
   ];
   $("#view").innerHTML = `<div class="more-grid">${tiles.map(([t, i, name, sub]) => `<div class="tile" onclick="go('${t}')"><div class="ico">${i}</div><b>${name}</b><span>${sub}</span></div>`).join("")}</div>
-    <div class="notice">Coming next: shared database with staff logins, the client booking page, and checkout.</div>`;
+    <div class="notice">${DB.mode() === "cloud" ? `Signed in as ${esc(Cloud.user?.email || "")} (${esc(Cloud.role || "")}) · <button class="link" onclick="signOut()">Sign out</button>` : `Offline mode — data is saved on this device only. <button class="link" onclick="location.reload()">Sign in</button>`}</div>
+    <div class="notice">Coming next: the client booking page, text reminders, and checkout.</div>`;
 }
 function renderSettings() {
   const s = DB.settings();
   $("#view").innerHTML = `${backLink()}<form id="setForm" novalidate>${layoutFields(SCHEMA.settings.fields, { ...s, id: s.updated_at ? "x" : undefined })}
-    <button class="primary" type="submit" style="width:100%;margin-top:6px">Save settings</button></form>`;
+    ${Cloud.isManager() ? `<button class="primary" type="submit" style="width:100%;margin-top:6px">Save settings</button>` : `<div class="notice">Only the owner or a manager can change salon settings.</div>`}</form>`;
   const form = $("#setForm");
   applyShowIf("settings", form); form.onchange = () => applyShowIf("settings", form);
   form.onsubmit = e => {
@@ -809,6 +924,7 @@ function readForm(t, form) {
   for (const f of SCHEMA[t].fields) {
     if (!f.key) continue;
     const box = $(`.field[data-key="${f.key}"]`, form);
+    if (!box) continue; // field hidden for this user
     if (f.type === "checkbox") rec[f.key] = !!form.elements[f.key]?.checked;
     else if (f.type === "number") rec[f.key] = num(form.elements[f.key]?.value);
     else if (f.type === "refsearch") {
@@ -850,6 +966,11 @@ function visitHistory(clientId) {
     <button type="button" id="bookForClient" style="margin:6px 0 10px">+ Book appointment</button></div></details>`;
 }
 
+function visibleFields(t, rec) {
+  const fields = SCHEMA[t].fields;
+  if (t !== "staff" || Cloud.isManager() || (rec.id && rec.id === Cloud.staffId)) return fields;
+  let sec = ""; return fields.filter(f => { if (f.section) sec = f.section; return !PRIVATE_STAFF_SECTIONS.has(sec) && !PRIVATE_STAFF_KEYS.has(f.key); });
+}
 function openForm(t, id, preset = {}) {
   const S = SCHEMA[t], rec = id ? DB.get(t, id) : { ...preset };
   const cats = [...new Set(DB.list("services").map(s => s.category).filter(Boolean))];
@@ -858,7 +979,7 @@ function openForm(t, id, preset = {}) {
     <div class="sheet-head"><button type="button" onclick="closeSheet()">Cancel</button>
       <h2>${id ? esc(S.title(rec)) : "New " + esc(S.singular.toLowerCase())}</h2>
       <button class="primary" type="submit">Save</button></div>
-    ${layoutFields(S.fields, rec)}
+    ${layoutFields(visibleFields(t, rec), rec)}
     ${t === "clients" && id ? visitHistory(id) : ""}
     <datalist id="categoryList">${cats.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
     <datalist id="brandList">${brands.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
@@ -879,6 +1000,7 @@ function openForm(t, id, preset = {}) {
       const dupe = findClientDupe(data);
       if (dupe && !confirm(`${fullName(dupe)} already has this ${phoneKey(dupe.phone) && phoneKey(dupe.phone) === phoneKey(data.phone) ? "phone number" : "email"}. Save anyway?`)) return;
     }
+    if (!canWrite(t)) return toast("Only the owner or a manager can change this");
     const missing = S.fields.filter(f => f.required && (data[f.key] === "" || data[f.key] == null) && !(f.type === "refsearch" && data[f.key + "__text"]));
     if (missing.length) { toast(missing.map(f => f.label).join(", ") + " required"); return; }
     if (S.beforeSave) S.beforeSave(data, rec);
@@ -904,7 +1026,8 @@ function findClientDupe(c) {
 /* ===================== Data tab ===================== */
 const IMPORTABLE = ["clients","staff","services","appointments","products","giftcards"];
 function renderData() {
-  const m = DB.meta(), n = t => DB.list(t).length;
+  const m = DB.meta(), n = t => DB.list(t).length, cloud = DB.mode() === "cloud";
+  const local = DB.localSnapshot(), localCount = cloud ? TABLES.reduce((x, t) => x + local[t].length, 0) : 0;
   $("#view").innerHTML = `${backLink()}
     <div class="stats">
       <div class="stat"><b>${n("clients")}</b><span>Clients</span></div>
@@ -913,27 +1036,30 @@ function renderData() {
     </div>
     <div class="card"><h2>Import from your current platform</h2>
       <p>Export each list as a CSV from your booking platform, then import it here. Columns are matched automatically and you can adjust them. <b>Import in this order:</b> staff → services → clients → appointment history, so everything links up.</p>
-      <div class="row wrap">${IMPORTABLE.map(t => `<button onclick="pickCsv('${t}')">${SCHEMA[t].label}</button>`).join("")}</div></div>
+      <div class="row wrap">${IMPORTABLE.filter(canWrite).map(t => `<button onclick="pickCsv('${t}')">${SCHEMA[t].label}</button>`).join("")}</div></div>
+    ${cloud && localCount && Cloud.isManager() ? `<div class="card"><h2>Data saved on this device</h2>
+      <p>${localCount} records from before the shared database are still stored in this browser.</p>
+      <div class="row wrap"><button class="primary" onclick="uploadLocal()">Upload to shared database</button><button onclick="if(confirm('Delete the copy stored on this device? (The shared database is not affected.)')){DB.clearLocal();renderData()}">Remove device copy</button></div></div>` : ""}
     <div class="card"><h2>Backup</h2>
-      <p>Everything is stored <b>only in this browser on this device</b>. Download a backup regularly, and use it to move your data to another device.${m.last_backup ? ` Last backup: ${new Date(m.last_backup).toLocaleString()}.` : " <b>No backup yet.</b>"}</p>
-      <div class="row"><button class="primary" id="backupBtn">Download backup</button><button id="restoreBtn">Restore backup</button></div></div>
+      <p>${cloud ? "Your data is stored in your Supabase database and shared with your team. The free plan doesn't include automatic backups, so download one regularly." : "Everything is stored <b>only in this browser on this device</b>. Download a backup regularly, and use it to move your data to another device."}${m.last_backup ? ` Last backup: ${new Date(m.last_backup).toLocaleString()}.` : " <b>No backup yet.</b>"}</p>
+      <div class="row"><button class="primary" id="backupBtn">Download backup</button>${Cloud.isManager() ? `<button id="restoreBtn">Restore backup</button>` : ""}</div></div>
     <div class="card"><h2>Export to spreadsheet</h2>
       <p>CSV files open in Excel, Numbers or Google Sheets.</p>
       <div class="row wrap">${TABLES.map(t => `<button onclick="exportCsv('${t}')">${SCHEMA[t].label}</button>`).join("")}</div></div>
-    <div class="card"><h2>Danger zone</h2>
+    ${cloud ? "" : `<div class="card"><h2>Danger zone</h2>
       <p>Erase all data stored in this browser.</p>
-      <button class="danger" id="wipeBtn">Erase everything</button></div>
+      <button class="danger" id="wipeBtn">Erase everything</button></div>`}
     <div class="notice">Don't enter Social Security numbers, bank account details, or other payroll/tax info here; those stay with your payroll provider.</div>`;
   $("#backupBtn").onclick = () => {
     download(`salon-hub-backup-${today()}.json`, JSON.stringify(DB.exportAll(), null, 2), "application/json");
     DB.setMeta("last_backup", now()); renderData();
   };
-  $("#restoreBtn").onclick = () => pickFile(".json,application/json", text => {
+  if ($("#restoreBtn")) $("#restoreBtn").onclick = () => pickFile(".json,application/json", text => {
     let obj; try { obj = JSON.parse(text); } catch { return toast("That file isn't valid JSON"); }
-    if (!confirm("Replace ALL current data with this backup?")) return;
+    if (!confirm(DB.mode() === "cloud" ? "Upload everything in this backup to the shared database? Records with the same ID will be overwritten." : "Replace ALL current data with this backup?")) return;
     try { DB.replaceAll(obj); render(); toast("Backup restored"); } catch (e) { toast(e.message); }
   });
-  $("#wipeBtn").onclick = () => {
+  if ($("#wipeBtn")) $("#wipeBtn").onclick = () => {
     if (prompt('This erases everything in this browser. Type ERASE to confirm.') !== "ERASE") return;
     DB.wipe(); render(); toast("All data erased");
   };
@@ -1147,7 +1273,159 @@ function exportCsv(t) {
   download(`${t}-${today()}.csv`, toCsv([["id", ...fields.map(f => f.label), ...extra.map(e => e[0])], ...rows.map(r => [r.id, ...fields.map(f => cell(f, r)), ...extra.map(e => e[1](r) ?? "")])]), "text/csv");
 }
 
-render();
+/* ===================== Sign-in, setup & team ===================== */
+const SITE_URL = location.origin + location.pathname;
+const SQL_EDITOR = "https://supabase.com/dashboard/project/mhgjtsinlvmhhlchbkdd/sql/new";
+function showGate(html) { $("#gate").innerHTML = `<div class="gate-card"><div class="gate-logo">✂️ Salon Hub</div>${html}</div>`; $("#gate").style.display = "flex"; }
+function hideGate() { $("#gate").style.display = "none"; }
+function gateMsg(t, bad) { const m = $("#gateMsg"); if (m) { m.textContent = t; m.style.color = bad ? "var(--danger)" : "var(--muted)"; } }
+function busy(btn, on) { if (btn) { btn.disabled = on; btn.style.opacity = on ? .6 : 1; } }
+
+async function boot() {
+  if (!window.supabase?.createClient) {
+    showGate(`<p>Can't reach the online database right now. Check your internet connection and reload.</p>
+      <button class="primary" onclick="location.reload()">Reload</button>
+      <p class="small">or <button class="link" onclick="startLocal()">use offline on this device only</button></p>`);
+    return;
+  }
+  Cloud.sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  Cloud.sb.auth.onAuthStateChange((ev) => { if (ev === "PASSWORD_RECOVERY") setTimeout(showNewPassword, 0); });
+  if (/type=recovery/.test(location.hash)) return; // handled by PASSWORD_RECOVERY
+  const { data: { session } } = await Cloud.sb.auth.getSession();
+  if (session) afterLogin(session); else showLogin();
+}
+
+function showLogin(note) {
+  showGate(`<h2>Sign in</h2>
+    <form id="loginForm" novalidate>
+      <div class="field"><label class="lbl">Email</label><input id="liEmail" type="email" autocomplete="username" required></div>
+      <div class="field"><label class="lbl">Password</label><input id="liPass" type="password" autocomplete="current-password" required></div>
+      <button class="primary" style="width:100%" type="submit">Sign in</button>
+    </form>
+    <p id="gateMsg" class="small">${esc(note || "")}</p>
+    <div class="row" style="justify-content:space-between"><button class="link" id="liSignup">Create account</button><button class="link" id="liForgot">Forgot password?</button></div>`);
+  $("#loginForm").onsubmit = async e => {
+    e.preventDefault(); const btn = e.submitter; busy(btn, true); gateMsg("Signing in…");
+    const { data, error } = await Cloud.sb.auth.signInWithPassword({ email: $("#liEmail").value.trim(), password: $("#liPass").value });
+    busy(btn, false);
+    if (error) return gateMsg(/confirm/i.test(error.message) ? "Please confirm your email first — check your inbox for the link." : error.message, true);
+    afterLogin(data.session);
+  };
+  $("#liSignup").onclick = async () => {
+    const email = $("#liEmail").value.trim(), password = $("#liPass").value;
+    if (!email || password.length < 8) return gateMsg("Enter your email and a password of at least 8 characters, then tap Create account.", true);
+    gateMsg("Creating account…");
+    const { data, error } = await Cloud.sb.auth.signUp({ email, password, options: { emailRedirectTo: SITE_URL } });
+    if (error) return gateMsg(error.message, true);
+    if (data.session) return afterLogin(data.session);
+    gateMsg("Account created. Check your email and tap the confirmation link, then sign in here.");
+  };
+  $("#liForgot").onclick = async () => {
+    const email = $("#liEmail").value.trim(); if (!email) return gateMsg("Enter your email first.", true);
+    const { error } = await Cloud.sb.auth.resetPasswordForEmail(email, { redirectTo: SITE_URL });
+    gateMsg(error ? error.message : "Check your email for a link to reset your password.", !!error);
+  };
+}
+
+function showNewPassword() {
+  showGate(`<h2>Choose a new password</h2><form id="npForm" novalidate>
+    <div class="field"><input id="npPass" type="password" autocomplete="new-password" placeholder="At least 8 characters"></div>
+    <button class="primary" style="width:100%" type="submit">Save password</button></form><p id="gateMsg" class="small"></p>`);
+  $("#npForm").onsubmit = async e => {
+    e.preventDefault(); const p = $("#npPass").value; if (p.length < 8) return gateMsg("At least 8 characters.", true);
+    const { error } = await Cloud.sb.auth.updateUser({ password: p }); if (error) return gateMsg(error.message, true);
+    history.replaceState(null, "", SITE_URL);
+    const { data: { session } } = await Cloud.sb.auth.getSession(); afterLogin(session);
+  };
+}
+
+function showSetup() {
+  showGate(`<h2>One-time database setup</h2>
+    <p>Your database is connected but its tables haven't been created yet.</p>
+    <ol class="steps">
+      <li><button class="primary" id="copySql">Copy setup code</button></li>
+      <li>Open the <a href="${SQL_EDITOR}" target="_blank" rel="noopener">Supabase SQL Editor</a>, paste, and tap <b>Run</b>.</li>
+      <li>Come back here and tap <button id="retry">Try again</button></li>
+    </ol><p id="gateMsg" class="small"></p>
+    <p class="small"><button class="link" onclick="signOut()">Sign out</button></p>`);
+  $("#copySql").onclick = async () => {
+    try { const sql = await (await fetch("supabase/setup.sql", { cache: "no-store" })).text(); await navigator.clipboard.writeText(sql); gateMsg("Copied! Now paste it in the SQL Editor."); }
+    catch (e) { gateMsg("Couldn't copy automatically. Open supabase/setup.sql in the GitHub repo and copy it from there.", true); }
+  };
+  $("#retry").onclick = async () => { const { data: { session } } = await Cloud.sb.auth.getSession(); afterLogin(session); };
+}
+
+const isSetupError = e => /PGRST20[25]|42P01|42883|Could not find|does not exist|schema cache/i.test(`${e?.code} ${e?.message}`);
+
+async function afterLogin(session) {
+  if (!session) return showLogin();
+  Cloud.user = session.user;
+  showGate(`<p>Loading your salon…</p>`);
+  try {
+    const claim = await Cloud.sb.rpc("claim_owner"); if (claim.error) throw claim.error;
+    const acc = await Cloud.sb.rpc("my_access"); if (acc.error) throw acc.error;
+    Cloud.role = acc.data?.role || null; Cloud.staffId = acc.data?.staff_id || null;
+    if (!Cloud.role) return showGate(`<h2>Almost there</h2><p>You're signed in as <b>${esc(session.user.email)}</b>, but this account hasn't been added to the salon team yet.</p><p>Ask the owner to add your email under <b>More → Team access</b>, then tap below.</p>
+      <button class="primary" onclick="afterLogin(Cloud.user && {user: Cloud.user})">Check again</button> <button onclick="signOut()">Sign out</button>`);
+    DB.useCloud(await Cloud.loadAll());
+    hideGate(); render();
+    const local = DB.localSnapshot(), localCount = TABLES.reduce((n, t) => n + local[t].length, 0);
+    if (localCount && Cloud.isManager() && !sessionStorage.getItem("askedUpload")) {
+      sessionStorage.setItem("askedUpload", "1");
+      if (confirm(`This device has ${localCount} records saved from before the shared database. Upload them now so your whole team can see them?`)) uploadLocal();
+    }
+  } catch (e) {
+    console.error(e);
+    if (isSetupError(e)) return showSetup();
+    showGate(`<p>Couldn't load your data: ${esc(e.message || e)}</p><button class="primary" onclick="location.reload()">Try again</button> <button onclick="signOut()">Sign out</button>`);
+  }
+}
+
+async function signOut() { if (Cloud.sb) await Cloud.sb.auth.signOut(); DB.useLocal(); Cloud.role = null; showLogin("Signed out."); }
+function startLocal() { DB.useLocal(); hideGate(); render(); toast("Offline mode: saved on this device only"); }
+
+function uploadLocal() {
+  const local = DB.localSnapshot(); let n = 0;
+  for (const t of TABLES) if (local[t].length) { DB.bulkInsert(t, local[t]); n += local[t].length; }
+  if (local.settings?.salon_name && !DB.settings().salon_name) DB.saveSettings(local.settings);
+  render(); toast(`Uploading ${n} records…`);
+  const wait = setInterval(() => { if (!Cloud.pending) { clearInterval(wait); toast(`✓ ${n} records uploaded`); if (tab === "data") renderData(); } }, 500);
+}
+
+async function renderTeam() {
+  $("#view").innerHTML = `${backLink()}<div class="empty">Loading team…</div>`;
+  if (DB.mode() !== "cloud") { $("#view").innerHTML = `${backLink()}<div class="notice">Team access needs the online database. Sign in to manage it.</div>`; return; }
+  const { data: members, error } = await Cloud.sb.from("members").select("*").order("role");
+  if (error) { $("#view").innerHTML = `${backLink()}<div class="notice">${esc(error.message)}</div>`; return; }
+  const staffOpts = sel => `<option value="">— not linked —</option>` + DB.list("staff").sort(SCHEMA.staff.sort).map(s => `<option value="${esc(s.id)}" ${s.id === sel ? "selected" : ""}>${esc(staffName(s))}</option>`).join("");
+  const owner = Cloud.isOwner();
+  $("#view").innerHTML = `${backLink()}
+    <div class="card"><h2>Who can sign in</h2>
+      <p>Owner & managers see everything, including pay. Staff see the calendar, clients and menu, plus their own pay details only.</p>
+      <div class="list" style="margin-top:0">${members.map(m => `<div class="item" style="cursor:default"><div class="main">
+        <div class="title">${esc(m.email)}${m.email === Cloud.user?.email?.toLowerCase() ? " (you)" : ""}</div>
+        <div class="sub">${esc(m.role)}${m.staff_id ? " · " + esc(staffName(DB.get("staff", m.staff_id) || {})) : ""}</div></div>
+        ${owner && m.role !== "owner" ? `<button class="danger" data-rm="${esc(m.email)}">Remove</button>` : ""}</div>`).join("")}</div></div>
+    ${owner ? `<div class="card"><h2>Add a team member</h2>
+      <form id="addMember" novalidate>
+        <div class="field"><label class="lbl">Their email</label><input id="mEmail" type="email" required></div>
+        <div class="grid2"><div class="field"><label class="lbl">Access</label><select id="mRole"><option value="staff">Staff</option><option value="manager">Manager</option></select></div>
+        <div class="field"><label class="lbl">Their staff profile</label><select id="mStaff">${staffOpts("")}</select></div></div>
+        <button class="primary" type="submit">Add</button></form>
+      <p>Then have them open this site, tap <b>Create account</b> with that same email, and confirm it from their inbox.</p></div>` : ""}
+    <div class="card"><h2>You</h2><p>Signed in as ${esc(Cloud.user?.email || "")} (${esc(Cloud.role || "")})</p><button onclick="signOut()">Sign out</button></div>`;
+  $$("[data-rm]").forEach(b => b.onclick = async () => {
+    if (!confirm(`Remove ${b.dataset.rm}? They won't be able to sign in to the salon anymore.`)) return;
+    const { error } = await Cloud.sb.from("members").delete().eq("email", b.dataset.rm); if (error) return toast(error.message); renderTeam();
+  });
+  if (owner) $("#addMember").onsubmit = async e => {
+    e.preventDefault(); const email = $("#mEmail").value.trim().toLowerCase(); if (!/.+@.+\..+/.test(email)) return toast("Enter a valid email");
+    const { error } = await Cloud.sb.from("members").upsert({ email, role: $("#mRole").value, staff_id: $("#mStaff").value || null });
+    if (error) return toast(error.message); toast("Added"); renderTeam();
+  };
+}
+
+boot();
 </script>
 </body>
 </html>

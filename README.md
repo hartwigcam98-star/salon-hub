@@ -12,15 +12,20 @@ Our own salon management system, which will fully replace the third-party bookin
 
 ## Where data lives
 This repo is public, so **no customer or employee data is ever committed here**.
-For now, records are saved in the browser's localStorage. All storage goes through the
-`DB` object in `index.html`. The next step replaces it with a hosted database and staff logins.
+Data is stored in a Supabase database, and only people on the team list can sign in and see it.
+`supabase/setup.sql` creates the tables and access rules. Run it once in the Supabase SQL Editor.
+
+- The first person to sign in becomes the **owner**. The owner adds team members under More → Team access.
+- **Owner/manager**: full access. **Staff**: calendar, clients, menu and products, plus only their *own* pay and employment details.
+- Pay, employment, emergency contact and onboarding fields are stored separately (`staff_private`), and the database blocks other stylists from reading them.
+- The key in `index.html` is Supabase's *publishable* key, which is designed to be public. Never commit the secret/service_role key.
 
 Payroll and tax details (SSNs, bank accounts) are kept with the payroll provider and are never entered here.
 
 ## Roadmap
 1. ✅ Records: clients, staff, services, products, gift cards, packages, memberships, settings
 2. ✅ Appointment calendar and visit history
-3. Hosted database and staff logins
+3. ✅ Hosted database and staff logins
 4. Online booking page for clients, plus text reminders
 5. Checkout through Stripe or Square, and commission reports exported to payroll
 6. Import full history, run alongside the old platform, then switch over
