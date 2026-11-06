@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Salon Hub</title>
 <style>
   :root {
@@ -19,20 +20,24 @@
     font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
   header { position:sticky; top:0; z-index:5; background:var(--bg);
     padding: calc(env(safe-area-inset-top) + 12px) 16px 8px; border-bottom:1px solid var(--line); }
-  header h1 { margin:0 0 8px; font-size:22px; display:flex; justify-content:space-between; align-items:center; }
-  header h1 small { font-size:13px; color:var(--muted); font-weight:500; }
+  header h1 { margin:0 0 8px; font-size:22px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  header h1 span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  header h1 small { font-size:13px; color:var(--muted); font-weight:500; white-space:nowrap; }
   main { padding: 12px 16px calc(var(--tabbar) + env(safe-area-inset-bottom) + 24px); max-width:760px; margin:0 auto; }
   .row { display:flex; gap:8px; align-items:center; }
+  .row.wrap { flex-wrap:wrap; }
   input, select, textarea { width:100%; font:inherit; color:inherit; background:var(--card);
-    border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+    border:1px solid var(--line); border-radius:10px; padding:10px 12px; min-width:0; }
   textarea { min-height:72px; resize:vertical; }
   input[type=checkbox] { width:auto; transform:scale(1.25); margin-right:8px; }
   input[type=color] { padding:2px; height:42px; }
+  input[type=date], input[type=time] { -webkit-appearance:none; appearance:none; min-height:42px; }
   button { font:inherit; border:0; border-radius:10px; padding:10px 14px; cursor:pointer;
     background:var(--line); color:var(--ink); white-space:nowrap; }
   button.primary { background:var(--accent); color:var(--accent-ink); font-weight:600; }
   button.danger { background:transparent; color:var(--danger); border:1px solid var(--danger); }
   button.link { background:none; padding:0; color:var(--accent); text-decoration:underline; }
+  button.back { background:none; padding:4px 0 10px; color:var(--accent); font-weight:600; }
   .list { display:flex; flex-direction:column; gap:8px; margin-top:12px; }
   .item { background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
     padding:12px 14px; display:flex; gap:12px; align-items:center; cursor:pointer; }
@@ -42,6 +47,9 @@
   .item .sub { color:var(--muted); font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .item .right { color:var(--muted); font-size:14px; text-align:right; flex:none; }
   .tag { display:inline-block; font-size:12px; padding:2px 8px; border-radius:99px; background:var(--line); color:var(--muted); }
+  .tag.warn { background:#f6e3c5; color:#7a4b00; }
+  .tag.bad { background:#f5d2cf; color:#8c1d16; }
+  .tag.good { background:#d5ecdc; color:#1f5c37; }
   .empty { text-align:center; color:var(--muted); padding:40px 16px; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin-bottom:12px; }
   .card h2 { margin:0 0 4px; font-size:17px; }
@@ -52,8 +60,8 @@
   .stat span { color:var(--muted); font-size:13px; }
   nav.tabs { position:fixed; bottom:0; left:0; right:0; z-index:5; display:flex; background:var(--card);
     border-top:1px solid var(--line); padding-bottom:env(safe-area-inset-bottom); }
-  nav.tabs button { flex:1; background:none; border-radius:0; height:var(--tabbar); color:var(--muted);
-    font-size:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
+  nav.tabs button { flex:1; background:none; border-radius:0; height:var(--tabbar); color:var(--muted); padding:0;
+    font-size:11px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
   nav.tabs button .ico { font-size:20px; }
   nav.tabs button.active { color:var(--accent); font-weight:600; }
   /* Sheet (modal) */
@@ -64,16 +72,12 @@
     transform:translateY(100%); transition:transform .2s ease; max-width:760px; margin:0 auto; }
   .sheet.open { transform:none; }
   .sheet-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:8px; }
-  .sheet-head h2 { margin:0; font-size:19px; }
+  .sheet-head h2 { margin:0; font-size:19px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .field { margin-bottom:12px; }
   .field label.lbl { display:block; font-size:13px; color:var(--muted); margin-bottom:4px; font-weight:600; }
   .field .hint { font-size:12px; color:var(--muted); margin-top:4px; }
   .field.check label { display:flex; align-items:center; font-size:15px; }
   .grid2 { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:0 10px; }
-  input, select { min-width:0; }
-  input[type=date], input[type=time] { -webkit-appearance:none; appearance:none; min-height:42px; }
-  .section-title { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
-    margin:18px 0 8px; font-weight:700; }
   .checks { display:flex; flex-wrap:wrap; gap:6px; }
   .checks label { display:flex; align-items:center; background:var(--card); border:1px solid var(--line);
     border-radius:99px; padding:6px 12px; font-size:14px; }
@@ -84,18 +88,15 @@
   details.group:not([open]) > summary::after { content:"▸"; }
   details.group > .group-body { padding:0 14px 6px; }
   details.group .hint-top { font-size:12px; color:var(--muted); margin:-4px 0 10px; }
-  .wh { display:grid; grid-template-columns:70px 1fr 1fr; gap:6px 8px; align-items:center; margin-bottom:12px; }
+  .wh { display:grid; grid-template-columns:70px minmax(0,1fr) minmax(0,1fr); gap:6px 8px; align-items:center; margin-bottom:12px; }
   .wh label { display:flex; align-items:center; font-size:14px; font-weight:600; }
   .wh input[type=time] { padding:8px; }
-  .wh .off { color:var(--muted); font-size:13px; grid-column:span 2; }
-  .svc-row { display:grid; grid-template-columns:1fr 84px 74px; gap:6px; align-items:center; margin-bottom:6px; font-size:14px; }
+  .svc-row { display:grid; grid-template-columns:minmax(0,1fr) 84px 74px; gap:6px; align-items:center; margin-bottom:6px; font-size:14px; }
   .svc-row label { display:flex; align-items:center; }
   .svc-row input[type=number] { padding:8px; }
   .rep-row { border:1px solid var(--line); border-radius:10px; padding:10px; margin-bottom:8px; position:relative; }
   .rep-row .rm { position:absolute; top:6px; right:6px; padding:2px 8px; background:none; color:var(--danger); font-size:18px; }
   .rep-row .field { margin-bottom:8px; }
-  .tag.warn { background:#f6e3c5; color:#7a4b00; }
-  .tag.bad { background:#f5d2cf; color:#8c1d16; }
   .map-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; align-items:center; margin-bottom:6px; font-size:14px; }
   .toast { position:fixed; left:50%; bottom:calc(var(--tabbar) + 20px); transform:translateX(-50%);
     background:var(--ink); color:var(--bg); padding:10px 16px; border-radius:99px; z-index:20;
@@ -103,11 +104,35 @@
   .toast.show { opacity:1; }
   .notice { font-size:13px; color:var(--muted); background:var(--card); border:1px dashed var(--line);
     border-radius:10px; padding:10px 12px; margin-top:12px; }
+  /* Calendar */
+  .cal-bar { display:grid; grid-template-columns:44px minmax(0,1fr) 44px auto; gap:6px; align-items:center; }
+  .cal-bar button { padding:10px 0; }
+  .cal-bar .today { padding:10px 12px; }
+  .cal-day { font-size:18px; font-weight:700; margin:14px 0 2px; }
+  .cal-sum { color:var(--muted); font-size:14px; margin-bottom:8px; }
+  .appt { background:var(--card); border:1px solid var(--line); border-left:5px solid var(--line); border-radius:12px;
+    padding:10px 12px; display:grid; grid-template-columns:72px minmax(0,1fr) auto; gap:10px; cursor:pointer; margin-bottom:8px; }
+  .appt .time { font-weight:700; font-size:14px; line-height:1.3; }
+  .appt .time small { display:block; color:var(--muted); font-weight:500; }
+  .appt .who { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .appt .what { color:var(--muted); font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .appt.cancelled { opacity:.55; }
+  .appt.cancelled .who { text-decoration:line-through; }
+  .on-today { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 12px; }
+  .chip { display:flex; align-items:center; gap:6px; background:var(--card); border:1px solid var(--line); border-radius:99px; padding:4px 10px; font-size:13px; }
+  .chip i { width:9px; height:9px; border-radius:50%; display:inline-block; }
+  .more-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .more-grid .tile { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:16px; cursor:pointer; }
+  .more-grid .tile .ico { font-size:24px; }
+  .more-grid .tile b { display:block; margin-top:6px; }
+  .more-grid .tile span { color:var(--muted); font-size:13px; }
+  .history .h-row { display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); font-size:14px; cursor:pointer; }
+  .history .h-row:last-child { border-bottom:0; }
 </style>
 </head>
 <body>
 <header>
-  <h1><span id="salonName">Salon Hub</span> <small id="tabTitle">Clients</small></h1>
+  <h1><span id="salonName">Salon Hub</span> <small id="tabTitle"></small></h1>
   <div class="row" id="toolbar">
     <input id="search" type="search" placeholder="Search…" autocomplete="off">
     <button class="primary" id="addBtn">+ Add</button>
@@ -117,10 +142,11 @@
 <main id="view"></main>
 
 <nav class="tabs">
-  <button data-tab="clients" class="active"><span class="ico">👤</span>Clients</button>
+  <button data-tab="calendar"><span class="ico">📅</span>Calendar</button>
+  <button data-tab="clients"><span class="ico">👤</span>Clients</button>
   <button data-tab="staff"><span class="ico">✂️</span>Staff</button>
   <button data-tab="services"><span class="ico">📋</span>Services</button>
-  <button data-tab="data"><span class="ico">⚙️</span>Data</button>
+  <button data-tab="more"><span class="ico">☰</span>More</button>
 </nav>
 
 <div class="sheet-bg" id="sheetBg"></div>
@@ -132,14 +158,17 @@
 "use strict";
 /* =====================================================================
    SCHEMA — every table, field and form is driven from this.
-   When we move to a real database, these map 1:1 to table columns.
+   When we move to a hosted database, these map 1:1 to table columns.
    ===================================================================== */
 const ROLES = ["Stylist","Colorist","Barber","Nail Tech","Esthetician","Assistant","Front Desk","Manager","Owner"];
 const PAY_TYPES = ["Commission","Hourly","Hourly + Commission","Booth Rent","Salary"];
 const LEVELS = ["Apprentice","New talent","Stylist","Senior","Master","Educator","Owner"];
+const APPT_STATUSES = ["Booked","Confirmed","Checked in","Completed","No-show","Cancelled"];
 const DAYS = [["mon","Mon"],["tue","Tue"],["wed","Wed"],["thu","Thu"],["fri","Fri"],["sat","Sat"],["sun","Sun"]];
+const DAY_KEYS = ["sun","mon","tue","wed","thu","fri","sat"];
 const COMPLEX_TYPES = new Set(["multiref","services_offered","weekly_hours","repeater"]);
 const PALETTE = ["#8a5a44","#3f6e8c","#6b8e4e","#a8577e","#c28a2c","#5b5fa8","#3d8a80","#b0533c"];
+const serviceOptions = () => DB.list("services").sort(SCHEMA.services.sort).map(s => ({ value: s.id, label: s.name + (s.price !== "" && s.price != null ? ` (${money(s.price)})` : "") }));
 
 const SCHEMA = {
   clients: {
@@ -156,6 +185,9 @@ const SCHEMA = {
       { key:"allergies",     label:"Allergies / sensitivities", type:"textarea", hint:"Patch-test results, product reactions, etc." },
       { key:"formula_notes", label:"Color formulas", type:"textarea" },
       { key:"notes",         label:"General notes", type:"textarea" },
+      { section: "Membership" },
+      { key:"membership_id",    label:"Membership plan", type:"ref", ref:"memberships", half:true },
+      { key:"membership_start", label:"Member since", type:"date", half:true },
       { section: "Communication" },
       { key:"sms_opt_in",   label:"OK to text (reminders/marketing)", type:"checkbox" },
       { key:"email_opt_in", label:"OK to email", type:"checkbox" },
@@ -165,9 +197,10 @@ const SCHEMA = {
     title: r => fullName(r) || "(no name)",
     sub: r => [fmtPhone(r.phone), r.email].filter(Boolean).join(" · "),
     right: r => { const s = DB.get("staff", r.preferred_staff_id); return s ? staffName(s) : ""; },
-    dot: r => { const s = DB.get("staff", r.preferred_staff_id); return s?.calendar_color; },
+    dot: r => DB.get("staff", r.preferred_staff_id)?.calendar_color,
     sort: (a,b) => (a.last_name||"").localeCompare(b.last_name||"") || (a.first_name||"").localeCompare(b.first_name||""),
     searchText: r => [r.first_name,r.last_name,r.phone,digits(r.phone),r.email,r.external_id].join(" "),
+    refLabel: r => fullName(r) + (r.phone ? " · " + fmtPhone(r.phone) : ""),
   },
   staff: {
     label: "Staff", singular: "Team member",
@@ -259,7 +292,7 @@ const SCHEMA = {
     rightIsHtml: true,
     dot: r => r.calendar_color,
     sort: (a,b) => (b.active!==false) - (a.active!==false) || (a.first_name||"").localeCompare(b.first_name||""),
-    searchText: r => [r.first_name,r.last_name,r.display_name,r.role,r.email,r.phone].join(" "),
+    searchText: r => [r.first_name,r.last_name,r.display_name,r.role,r.level,r.specialties,r.email,r.phone].join(" "),
   },
   services: {
     label: "Services", singular: "Service",
@@ -280,27 +313,193 @@ const SCHEMA = {
     sort: (a,b) => (a.category||"").localeCompare(b.category||"") || (a.name||"").localeCompare(b.name||""),
     searchText: r => [r.name, r.category, r.description].join(" "),
   },
+  appointments: {
+    label: "Appointments", singular: "Appointment",
+    fields: [
+      { section: "Appointment" },
+      { key:"date",       label:"Date", type:"date", required:true, half:true },
+      { key:"start_time", label:"Start time", type:"time", required:true, half:true },
+      { key:"client_id",  label:"Client", type:"refsearch", ref:"clients", required:true, hint:"Start typing a name or phone. A new name creates a new client." },
+      { key:"staff_id",   label:"Stylist", type:"ref", ref:"staff", required:true, half:true },
+      { key:"status",     label:"Status", type:"select", options:APPT_STATUSES, default:"Booked", half:true },
+      { section: "Services", hint: "Leave price/time blank to use this stylist's price, or the menu price." },
+      { key:"services", label:"", type:"repeater", addLabel:"+ Add service", startWithRow:true, subfields:[
+        { key:"service_id", label:"Service", type:"select", options: serviceOptions },
+        { key:"price", label:"Price $", type:"number", half:true }, { key:"duration_min", label:"Minutes", type:"number", half:true } ] },
+      { section: "Payment" },
+      { key:"total_price",  label:"Total ($)", type:"number", step:"0.01", half:true, hint:"Left blank = sum of services." },
+      { key:"deposit_paid", label:"Deposit paid ($)", type:"number", step:"0.01", half:true },
+      { key:"booked_via",   label:"Booked via", type:"select", options:["Phone","In person","Walk-in","Online","Imported"], default:"Phone" },
+      { section: "Notes" },
+      { key:"notes",       label:"Appointment notes", type:"textarea" },
+      { key:"external_id", label:"ID in old system", type:"text" },
+    ],
+    title: r => { const c = DB.get("clients", r.client_id); return c ? fullName(c) : "(no client)"; },
+    sub: r => [fmtDate(r.date), fmtTime(r.start_time), serviceNames(r)].filter(Boolean).join(" · "),
+    right: r => r.total_price !== "" && r.total_price != null ? money(r.total_price) : "",
+    sort: (a,b) => (b.date||"").localeCompare(a.date||"") || (b.start_time||"").localeCompare(a.start_time||""),
+    searchText: r => [SCHEMA.appointments.title(r), serviceNames(r), r.notes].join(" "),
+    beforeSave: prepareAppointment,
+  },
+  products: {
+    label: "Retail products", singular: "Product",
+    fields: [
+      { key:"name",      label:"Product name", type:"text", required:true },
+      { key:"brand",     label:"Brand", type:"text", half:true, list:"brandList" },
+      { key:"category",  label:"Category", type:"text", half:true, hint:"Shampoo, styling, tools…" },
+      { key:"sku",       label:"SKU / barcode", type:"text", half:true },
+      { key:"size",      label:"Size", type:"text", half:true },
+      { key:"retail_price", label:"Retail price ($)", type:"number", step:"0.01", half:true },
+      { key:"cost",      label:"Your cost ($)", type:"number", step:"0.01", half:true },
+      { key:"stock_qty", label:"In stock", type:"number", step:"1", half:true },
+      { key:"reorder_at", label:"Reorder when at", type:"number", step:"1", half:true },
+      { key:"supplier",  label:"Supplier / distributor", type:"text" },
+      { key:"backbar",   label:"Also used professionally (backbar)", type:"checkbox" },
+      { key:"active",    label:"Currently sold", type:"checkbox", default:true },
+      { key:"notes",     label:"Notes", type:"textarea" },
+      { key:"external_id", label:"ID in old system", type:"text" },
+    ],
+    title: r => r.name || "(unnamed)",
+    sub: r => [r.brand, r.size, r.stock_qty !== "" && r.stock_qty != null ? `${r.stock_qty} in stock` : ""].filter(Boolean).join(" · "),
+    right: r => {
+      const low = r.reorder_at !== "" && r.reorder_at != null && r.stock_qty !== "" && r.stock_qty != null && Number(r.stock_qty) <= Number(r.reorder_at);
+      return (low ? '<span class="tag warn">Reorder</span> ' : "") + esc(money(r.retail_price));
+    },
+    rightIsHtml: true,
+    sort: (a,b) => (a.brand||"").localeCompare(b.brand||"") || (a.name||"").localeCompare(b.name||""),
+    searchText: r => [r.name, r.brand, r.category, r.sku, r.supplier].join(" "),
+  },
+  giftcards: {
+    label: "Gift cards", singular: "Gift card",
+    fields: [
+      { key:"code",     label:"Card code", type:"text", half:true, hint:"Leave blank to generate one." },
+      { key:"status",   label:"Status", type:"select", options:["Active","Fully redeemed","Expired","Void"], default:"Active", half:true },
+      { key:"amount",   label:"Original amount ($)", type:"number", step:"0.01", required:true, half:true },
+      { key:"balance",  label:"Remaining balance ($)", type:"number", step:"0.01", half:true, hint:"Blank = original amount." },
+      { key:"purchaser_id", label:"Purchased by", type:"ref", ref:"clients", half:true },
+      { key:"recipient_name", label:"For (recipient)", type:"text", half:true },
+      { key:"issued",   label:"Issued", type:"date", half:true },
+      { key:"expires",  label:"Expires", type:"date", half:true, hint:"Check your state's gift card rules." },
+      { key:"notes",    label:"Notes", type:"textarea" },
+      { key:"external_id", label:"ID in old system", type:"text" },
+    ],
+    title: r => r.code || "(no code)",
+    sub: r => [r.recipient_name ? "For " + r.recipient_name : "", r.issued ? "Issued " + fmtDate(r.issued) : ""].filter(Boolean).join(" · "),
+    right: r => `${esc(money(r.balance))} <span class="tag${r.status === "Active" ? " good" : ""}">${esc(r.status || "")}</span>`,
+    rightIsHtml: true,
+    sort: (a,b) => (b.issued||"").localeCompare(a.issued||""),
+    searchText: r => [r.code, r.recipient_name, fullName(DB.get("clients", r.purchaser_id) || {})].join(" "),
+    beforeSave: r => {
+      if (!r.code) r.code = "GC-" + Math.random().toString(36).slice(2, 8).toUpperCase();
+      if (r.balance === "") r.balance = r.amount;
+      if (!r.issued) r.issued = today();
+    },
+  },
+  packages: {
+    label: "Packages", singular: "Package",
+    fields: [
+      { key:"name",  label:"Package name", type:"text", required:true, hint:"e.g. “5 blowouts”" },
+      { key:"price", label:"Package price ($)", type:"number", step:"0.01", half:true },
+      { key:"valid_days", label:"Valid for (days)", type:"number", step:"1", half:true, hint:"Blank = no expiry." },
+      { key:"items", label:"Included services", type:"repeater", addLabel:"+ Add service", startWithRow:true, subfields:[
+        { key:"service_id", label:"Service", type:"select", options: serviceOptions }, { key:"qty", label:"Quantity", type:"number" } ] },
+      { key:"active", label:"Currently sold", type:"checkbox", default:true },
+      { key:"description", label:"Description", type:"textarea" },
+    ],
+    title: r => r.name || "(unnamed)",
+    sub: r => (r.items || []).map(i => `${i.qty || 1}× ${DB.get("services", i.service_id)?.name || "?"}`).join(", "),
+    right: r => money(r.price),
+    sort: (a,b) => (a.name||"").localeCompare(b.name||""),
+    searchText: r => r.name,
+  },
+  memberships: {
+    label: "Memberships", singular: "Membership plan",
+    fields: [
+      { key:"name",  label:"Plan name", type:"text", required:true, hint:"e.g. “Blowout Club”" },
+      { key:"monthly_price", label:"Monthly price ($)", type:"number", step:"0.01", half:true },
+      { key:"min_months", label:"Minimum months", type:"number", step:"1", half:true },
+      { key:"items", label:"Included each month", type:"repeater", addLabel:"+ Add service", subfields:[
+        { key:"service_id", label:"Service", type:"select", options: serviceOptions }, { key:"qty", label:"Per month", type:"number" } ] },
+      { key:"service_discount_pct", label:"Member discount on services %", type:"number", step:"1", half:true },
+      { key:"retail_discount_pct",  label:"Member discount on retail %", type:"number", step:"1", half:true },
+      { key:"rollover", label:"Unused visits roll over", type:"checkbox" },
+      { key:"active",   label:"Open to new members", type:"checkbox", default:true },
+      { key:"terms",    label:"Terms", type:"textarea" },
+    ],
+    title: r => r.name || "(unnamed)",
+    sub: r => { const n = DB.list("clients").filter(c => c.membership_id === r.id).length; return `${n} member${n === 1 ? "" : "s"}`; },
+    right: r => r.monthly_price !== "" && r.monthly_price != null ? money(r.monthly_price) + "/mo" : "",
+    sort: (a,b) => (a.name||"").localeCompare(b.name||""),
+    searchText: r => r.name,
+  },
+  settings: {
+    label: "Salon settings", singular: "Settings",
+    fields: [
+      { section: "Business" },
+      { key:"salon_name", label:"Salon name", type:"text", required:true },
+      { key:"phone",   label:"Phone", type:"tel", half:true },
+      { key:"email",   label:"Email", type:"email", half:true },
+      { key:"address", label:"Street address", type:"text" },
+      { key:"city",    label:"City", type:"text", half:true },
+      { key:"state",   label:"State", type:"text", half:true },
+      { key:"zip",     label:"ZIP", type:"text", half:true },
+      { key:"timezone", label:"Time zone", type:"select", options:["America/Chicago","America/New_York","America/Denver","America/Phoenix","America/Los_Angeles"], default:"America/Chicago", half:true },
+      { key:"website", label:"Website", type:"url", half:true },
+      { key:"instagram", label:"Instagram", type:"text", half:true },
+      { section: "Business hours" },
+      { key:"business_hours", label:"", type:"weekly_hours" },
+      { key:"closures", label:"Holidays & closures", type:"repeater", addLabel:"+ Add closed day", subfields:[
+        { key:"date", label:"Date", type:"date", half:true }, { key:"name", label:"Reason", type:"text", half:true } ] },
+      { section: "Booking rules", hint: "Used by the calendar and the online booking page." },
+      { key:"slot_interval", label:"Time slots every (min)", type:"number", step:"5", default:15, half:true },
+      { key:"buffer_min", label:"Buffer between appts (min)", type:"number", step:"5", default:0, half:true },
+      { key:"min_notice_hours", label:"Min notice to book (hours)", type:"number", step:"1", default:2, half:true },
+      { key:"max_days_ahead", label:"Book up to (days ahead)", type:"number", step:"1", default:90, half:true },
+      { key:"online_booking", label:"Online booking turned on", type:"checkbox", default:false },
+      { key:"new_clients_online", label:"New clients can book online", type:"checkbox", default:true },
+      { section: "Deposits & cancellations" },
+      { key:"deposit_required", label:"Require a deposit to book", type:"checkbox" },
+      { key:"deposit_type",   label:"Deposit type", type:"select", options:["Flat $","% of service"], half:true, showIf: r => r.deposit_required },
+      { key:"deposit_amount", label:"Deposit amount", type:"number", step:"0.01", half:true, showIf: r => r.deposit_required },
+      { key:"cancel_window_hours", label:"Free cancellation up to (hours before)", type:"number", step:"1", default:24 },
+      { key:"late_cancel_fee", label:"Late cancel fee", type:"number", step:"0.01", half:true },
+      { key:"late_cancel_fee_type", label:"Fee type", type:"select", options:["Flat $","% of service"], half:true },
+      { key:"no_show_fee", label:"No-show fee", type:"number", step:"0.01", half:true },
+      { key:"no_show_fee_type", label:"Fee type", type:"select", options:["Flat $","% of service"], half:true },
+      { key:"policy_text", label:"Policy shown to clients", type:"textarea" },
+      { section: "Checkout" },
+      { key:"sales_tax_pct", label:"Sales tax %", type:"number", step:"0.001", half:true },
+      { key:"tip_options", label:"Tip suggestions (%)", type:"text", default:"18, 20, 25", half:true },
+      { key:"tax_retail",  label:"Charge tax on retail", type:"checkbox", default:true },
+      { key:"tax_services", label:"Charge tax on services", type:"checkbox", default:false },
+    ],
+  },
 };
+const LIST_TABLES = ["clients","staff","services","products","giftcards","packages","memberships"];
+const MORE_TABS = ["products","giftcards","packages","memberships","settings","data"];
 
 /* =====================================================================
    DATA LAYER — the ONLY place that touches storage.
-   Today: this browser's localStorage. Later: swap these functions for
-   API calls to a hosted database; the rest of the app stays the same.
+   Today: this browser's localStorage. Next: a hosted database with
+   logins; only this block changes.
    ===================================================================== */
 const STORAGE_KEY = "salonhub.v1";
+const TABLES = Object.keys(SCHEMA).filter(t => t !== "settings");
 const DB = (() => {
   let data;
-  function blank() { return { meta: { schema_version: 1, salon_name: "", created_at: now() }, clients: [], staff: [], services: [] }; }
+  function blank() { return { meta: { schema_version: 3, created_at: now() }, settings: {} }; }
   function load() {
     try { data = JSON.parse(localStorage.getItem(STORAGE_KEY)) || blank(); }
     catch (e) { data = blank(); }
-    for (const t of Object.keys(SCHEMA)) data[t] = data[t] || [];
+    for (const t of TABLES) data[t] = data[t] || [];
     data.meta = data.meta || blank().meta;
-    // v1 → v2: staff.service_ids became services_offered (with per-stylist price/time)
+    data.settings = data.settings || {};
+    // migrations
     for (const s of data.staff) if (Array.isArray(s.service_ids) && !s.services_offered) {
       s.services_offered = s.service_ids.map(id => ({ service_id: id })); delete s.service_ids;
     }
-    data.meta.schema_version = 2;
+    if (data.meta.salon_name && !data.settings.salon_name) { data.settings.salon_name = data.meta.salon_name; delete data.meta.salon_name; }
+    data.meta.schema_version = 3;
   }
   function persist() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); return true; }
@@ -313,19 +512,21 @@ const DB = (() => {
     upsert(t, rec) {
       const i = data[t].findIndex(r => r.id === rec.id);
       if (i >= 0) data[t][i] = { ...data[t][i], ...rec, updated_at: now() };
-      else data[t].push({ ...rec, id: rec.id || uid(), created_at: now(), updated_at: now() });
-      persist();
+      else { rec = { ...rec, id: rec.id || uid(), created_at: now(), updated_at: now() }; data[t].push(rec); }
+      persist(); return rec.id;
     },
-    bulkInsert(t, recs) { for (const r of recs) data[t].push({ ...r, id: uid(), created_at: now(), updated_at: now() }); persist(); },
+    bulkInsert(t, recs) { for (const r of recs) data[t].push({ id: uid(), ...r, created_at: now(), updated_at: now() }); persist(); },
     remove(t, id) { data[t] = data[t].filter(r => r.id !== id); persist(); },
     meta: () => data.meta,
     setMeta(k, v) { data.meta[k] = v; persist(); },
+    settings: () => data.settings,
+    saveSettings(s) { data.settings = { ...data.settings, ...s, updated_at: now() }; persist(); },
     exportAll: () => JSON.parse(JSON.stringify({ ...data, meta: { ...data.meta, exported_at: now() } })),
     replaceAll(obj) {
       if (!obj || typeof obj !== "object" || !Array.isArray(obj.clients)) throw new Error("Not a Salon Hub backup file");
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...blank(), ...obj })); load(); persist();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(obj)); load(); persist();
     },
-    wipe() { data = blank(); persist(); },
+    wipe() { localStorage.removeItem(STORAGE_KEY); load(); persist(); },
   };
 })();
 
@@ -336,10 +537,11 @@ function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;"
 function digits(s) { return String(s || "").replace(/\D/g, ""); }
 function phoneKey(s) { const d = digits(s); return d.length >= 10 ? d.slice(-10) : d; }
 function fmtPhone(s) { const d = phoneKey(s); return d.length === 10 ? `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}` : (s || ""); }
-function money(n) { const v = Number(n); return isNaN(v) ? "" : "$" + v.toFixed(v % 1 ? 2 : 0); }
+function money(n) { if (n === "" || n == null) return ""; const v = Number(n); return isNaN(v) ? "" : "$" + v.toFixed(v % 1 ? 2 : 0); }
 function fullName(r) { return [r.first_name, r.last_name].filter(Boolean).join(" "); }
 function staffName(r) { return r.display_name || fullName(r) || "(no name)"; }
 function norm(s) { return String(s || "").toLowerCase().replace(/[^a-z0-9]/g, ""); }
+function num(v) { return v === "" || v == null || isNaN(Number(v)) ? "" : Number(v); }
 let toastTimer;
 function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2200); }
 function $(s, root = document) { return root.querySelector(s); }
@@ -350,36 +552,55 @@ function download(name, text, type) {
   a.download = name; document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
-function today() { return new Date().toISOString().slice(0, 10); }
+function localISO(d) { const x = new Date(d); x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0, 10); }
+function today() { return localISO(new Date()); }
+function addDays(iso, n) { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return localISO(d); }
+function dayKey(iso) { return DAY_KEYS[new Date(iso + "T12:00:00").getDay()]; }
+function fmtDate(iso, long) { if (!iso) return ""; return new Date(iso + "T12:00:00").toLocaleDateString(undefined, long ? { weekday:"long", month:"long", day:"numeric" } : { month:"short", day:"numeric", year:"numeric" }); }
+function fmtTime(t) { if (!t) return ""; const [h, m] = t.split(":").map(Number); return `${(h % 12) || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; }
+function addMin(t, n) { const [h, m] = t.split(":").map(Number); const x = h * 60 + m + Number(n || 0); return `${String(Math.floor(x / 60) % 24).padStart(2, "0")}:${String(x % 60).padStart(2, "0")}`; }
+function serviceNames(a) { return (a.services || []).map(l => DB.get("services", l.service_id)?.name).filter(Boolean).join(", "); }
+function nextSlot() { const d = new Date(); return `${String(Math.min(d.getHours() + 1, 23)).padStart(2, "0")}:00`; }
 
 /* ===================== app state / navigation ===================== */
-let tab = "clients";
-$$("nav.tabs button").forEach(b => b.onclick = () => { tab = b.dataset.tab; $("#search").value = ""; render(); });
+let tab = "calendar", calDate = today(), calStaff = "";
+$$("nav.tabs button").forEach(b => b.onclick = () => { tab = b.dataset.tab; $("#search").value = ""; render(); window.scrollTo(0, 0); });
 $("#search").oninput = () => renderList();
-$("#addBtn").onclick = () => openForm(tab);
+$("#addBtn").onclick = () => tab === "calendar" ? openForm("appointments", null, { date: calDate, start_time: nextSlot(), staff_id: calStaff }) : openForm(tab);
 $("#sheetBg").onclick = closeSheet;
+function go(t) { tab = t; $("#search").value = ""; render(); window.scrollTo(0, 0); }
 
 function render() {
-  $$("nav.tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
-  $("#salonName").textContent = DB.meta().salon_name || "Salon Hub";
-  $("#tabTitle").textContent = tab === "data" ? "Data & Settings" : SCHEMA[tab].label;
-  $("#toolbar").style.display = tab === "data" ? "none" : "";
-  if (tab === "data") renderData(); else renderList();
+  const navTab = MORE_TABS.includes(tab) || tab === "more" ? "more" : tab;
+  $$("nav.tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === navTab));
+  $("#salonName").textContent = DB.settings().salon_name || "Salon Hub";
+  $("#tabTitle").textContent = { calendar: "Calendar", more: "More", data: "Data & backup" }[tab] || SCHEMA[tab]?.label || "";
+  const isList = LIST_TABLES.includes(tab);
+  $("#toolbar").style.display = isList || tab === "calendar" ? "" : "none";
+  $("#search").style.display = isList ? "" : "none";
+  $("#addBtn").textContent = tab === "calendar" ? "+ Book appointment" : "+ Add";
+  $("#addBtn").style.flex = tab === "calendar" ? "1" : "";
+  if (tab === "calendar") renderCalendar();
+  else if (tab === "more") renderMore();
+  else if (tab === "data") renderData();
+  else if (tab === "settings") renderSettings();
+  else renderList();
 }
+const backLink = () => MORE_TABS.includes(tab) ? `<button class="back" onclick="go('more')">‹ More</button>` : "";
 
 function renderList() {
   const S = SCHEMA[tab], q = $("#search").value.trim().toLowerCase();
   let rows = DB.list(tab).sort(S.sort);
   const total = rows.length;
-  if (q) { const qd = digits(q); rows = rows.filter(r => { const t = S.searchText(r).toLowerCase(); return t.includes(q) || (qd.length >= 3 && t.includes(qd)); }); }
+  if (q) { const qd = digits(q); rows = rows.filter(r => { const t = S.searchText(r).toLowerCase(); return t.includes(q) || (qd.length >= 3 && digits(t).includes(qd)); }); }
   $("#search").placeholder = `Search ${total} ${S.label.toLowerCase()}…`;
   if (!total) {
-    $("#view").innerHTML = `<div class="empty">No ${S.label.toLowerCase()} yet.<br><br>
-      <button class="primary" onclick="openForm('${tab}')">Add ${S.singular.toLowerCase()}</button><br><br>
-      <button class="link" onclick="tab='data';render()">or import a CSV</button></div>`;
+    $("#view").innerHTML = `${backLink()}<div class="empty">No ${S.label.toLowerCase()} yet.<br><br>
+      <button class="primary" onclick="openForm('${tab}')">Add ${S.singular.toLowerCase()}</button>
+      ${IMPORTABLE.includes(tab) ? `<br><br><button class="link" onclick="go('data')">or import a CSV</button>` : ""}</div>`;
     return;
   }
-  $("#view").innerHTML = `<div class="list">${rows.map(r => {
+  $("#view").innerHTML = `${backLink()}<div class="list">${rows.map(r => {
     const dot = S.dot ? S.dot(r) : null, right = S.right ? S.right(r) : "";
     return `<div class="item" data-id="${esc(r.id)}">
       ${S.dot ? `<span class="dot" style="background:${esc(dot || "var(--line)")}"></span>` : ""}
@@ -389,29 +610,126 @@ function renderList() {
   $$(".item", $("#view")).forEach(el => el.onclick = () => openForm(tab, el.dataset.id));
 }
 
+/* ===================== Calendar ===================== */
+function staffWorking(s, iso) {
+  if (s.active === false) return null;
+  const wh = (s.weekly_hours || {})[dayKey(iso)] || {};
+  if (!(wh.on ?? dayKey(iso) !== "sun")) return null;
+  if ((s.time_off || []).some(t => t.start && t.start <= iso && (t.end || t.start) >= iso)) return "off";
+  return `${fmtTime(wh.start || "09:00")}–${fmtTime(wh.end || "17:00")}`;
+}
+function renderCalendar() {
+  const set = DB.settings(), staff = DB.list("staff").sort(SCHEMA.staff.sort);
+  const closure = (set.closures || []).find(c => c.date === calDate);
+  const bh = (set.business_hours || {})[dayKey(calDate)];
+  const salonClosed = closure || (bh && bh.on === false);
+  let appts = DB.list("appointments").filter(a => a.date === calDate && (!calStaff || a.staff_id === calStaff))
+    .sort((a, b) => (a.start_time || "").localeCompare(b.start_time || ""));
+  const live = appts.filter(a => !["Cancelled","No-show"].includes(a.status));
+  const booked = live.reduce((s, a) => s + (Number(a.total_price) || 0), 0);
+  const working = staff.filter(s => !calStaff || s.id === calStaff).map(s => ({ s, w: staffWorking(s, calDate) })).filter(x => x.w);
+  $("#view").innerHTML = `
+    <div class="cal-bar">
+      <button onclick="calDate=addDays(calDate,-1);render()">‹</button>
+      <input type="date" id="calPick" value="${calDate}">
+      <button onclick="calDate=addDays(calDate,1);render()">›</button>
+      <button class="today" onclick="calDate=today();render()">Today</button>
+    </div>
+    <div style="margin-top:8px"><select id="calStaffSel"><option value="">All stylists</option>${staff.filter(s => s.active !== false).map(s => `<option value="${esc(s.id)}" ${s.id === calStaff ? "selected" : ""}>${esc(staffName(s))}</option>`).join("")}</select></div>
+    <div class="cal-day">${esc(fmtDate(calDate, true))}${calDate === today() ? ' <span class="tag good">Today</span>' : ""}</div>
+    <div class="cal-sum">${live.length} appointment${live.length === 1 ? "" : "s"}${booked ? ` · ${money(booked)} booked` : ""}${bh && bh.on ? ` · Open ${fmtTime(bh.start)}–${fmtTime(bh.end)}` : ""}</div>
+    ${salonClosed ? `<div class="notice">🚪 Salon closed${closure ? `: ${esc(closure.name || "")}` : " (business hours)"}</div>` : ""}
+    ${working.length ? `<div class="on-today">${working.map(({ s, w }) => `<span class="chip"><i style="background:${esc(s.calendar_color || "var(--line)")}"></i>${esc(staffName(s))} · ${w === "off" ? "Time off" : esc(w)}</span>`).join("")}</div>` : ""}
+    ${appts.length ? appts.map(a => {
+      const s = DB.get("staff", a.staff_id), cancelled = ["Cancelled","No-show"].includes(a.status);
+      const tagCls = a.status === "Completed" ? " good" : cancelled ? " bad" : a.status === "Checked in" ? " warn" : "";
+      return `<div class="appt${cancelled ? " cancelled" : ""}" data-id="${esc(a.id)}" style="border-left-color:${esc(s?.calendar_color || "var(--line)")}">
+        <div class="time">${esc(fmtTime(a.start_time))}<small>${esc(fmtTime(a.end_time))}</small></div>
+        <div style="min-width:0"><div class="who">${esc(SCHEMA.appointments.title(a))}</div>
+          <div class="what">${esc(serviceNames(a) || "No service")}${!calStaff && s ? " · " + esc(staffName(s)) : ""}</div></div>
+        <div style="text-align:right"><span class="tag${tagCls}">${esc(a.status || "")}</span><div class="what">${esc(money(a.total_price))}</div></div>
+      </div>`; }).join("")
+    : `<div class="empty">No appointments${calStaff ? " for this stylist" : ""} on this day.</div>`}
+    ${!staff.length ? `<div class="notice">Add your team in the Staff tab and your menu in Services before booking.</div>` : ""}`;
+  $("#calPick").onchange = e => { if (e.target.value) { calDate = e.target.value; render(); } };
+  $("#calStaffSel").onchange = e => { calStaff = e.target.value; render(); };
+  $$(".appt").forEach(el => el.onclick = () => openForm("appointments", el.dataset.id));
+}
+
+function prepareAppointment(a) {
+  // Create a client on the fly if a new name was typed
+  if (!a.client_id && a.client_id__text) {
+    const txt = a.client_id__text.split("·")[0].trim(), parts = txt.split(/\s+/);
+    const phone = digits(txt).length >= 7 ? txt : "";
+    a.client_id = DB.upsert("clients", phone ? { first_name: "New client", phone } : { first_name: parts[0], last_name: parts.slice(1).join(" ") });
+    toast("New client added");
+  }
+  delete a.client_id__text;
+  const staff = DB.get("staff", a.staff_id);
+  a.services = (a.services || []).filter(l => l.service_id).map(l => {
+    const svc = DB.get("services", l.service_id) || {}, off = (staff?.services_offered || []).find(o => o.service_id === l.service_id) || {};
+    const pick = (...v) => { for (const x of v) if (x !== "" && x != null) return Number(x); return ""; };
+    return { service_id: l.service_id, price: pick(l.price, off.price, svc.price), duration_min: pick(l.duration_min, off.duration_min, svc.duration_min) };
+  });
+  const dur = a.services.reduce((s, l) => s + (Number(l.duration_min) || 0), 0) || 30;
+  a.duration_min = dur;
+  if (a.start_time) a.end_time = addMin(a.start_time, dur);
+  if (a.total_price === "" && a.services.length) a.total_price = a.services.reduce((s, l) => s + (Number(l.price) || 0), 0);
+}
+
+/* ===================== More / settings ===================== */
+function renderMore() {
+  const n = t => DB.list(t).length;
+  const tiles = [
+    ["products", "🧴", "Retail products", `${n("products")} products`],
+    ["giftcards", "🎁", "Gift cards", `${DB.list("giftcards").filter(g => g.status === "Active").length} active`],
+    ["packages", "📦", "Packages", `${n("packages")} packages`],
+    ["memberships", "⭐", "Memberships", `${n("memberships")} plans`],
+    ["settings", "🏠", "Salon settings", "Hours, policies, tax"],
+    ["data", "💾", "Data & backup", "Import, export, backup"],
+  ];
+  $("#view").innerHTML = `<div class="more-grid">${tiles.map(([t, i, name, sub]) => `<div class="tile" onclick="go('${t}')"><div class="ico">${i}</div><b>${name}</b><span>${sub}</span></div>`).join("")}</div>
+    <div class="notice">Coming next: shared database with staff logins, the client booking page, and checkout.</div>`;
+}
+function renderSettings() {
+  const s = DB.settings();
+  $("#view").innerHTML = `${backLink()}<form id="setForm" novalidate>${layoutFields(SCHEMA.settings.fields, { ...s, id: s.updated_at ? "x" : undefined })}
+    <button class="primary" type="submit" style="width:100%;margin-top:6px">Save settings</button></form>`;
+  const form = $("#setForm");
+  applyShowIf("settings", form); form.onchange = () => applyShowIf("settings", form);
+  form.onsubmit = e => {
+    e.preventDefault();
+    const data = readForm("settings", form);
+    if (!data.salon_name) return toast("Salon name required");
+    DB.saveSettings(data); render(); toast("Settings saved");
+  };
+}
+
 /* ===================== forms (generated from SCHEMA) ===================== */
 function openSheet(html) { $("#sheet").innerHTML = html; $("#sheetBg").classList.add("open"); $("#sheet").classList.add("open"); $("#sheet").scrollTop = 0; }
 function closeSheet() { $("#sheetBg").classList.remove("open"); $("#sheet").classList.remove("open"); }
+const refMaps = {};
 
 function fieldHtml(f, rec) {
-  if (f.section) return `<div class="section-title">${esc(f.section)}</div>`;
   const v = rec[f.key] ?? (rec.id ? "" : f.default ?? "");
   const id = "f_" + f.key, req = f.required ? " required" : "";
   const hint = f.hint ? `<div class="hint">${esc(f.hint)}</div>` : "";
-  const wrapStart = `<div class="field${f.type === "checkbox" ? " check" : ""}" data-key="${f.key}"${f.half ? ' data-half="1"' : ""}>`;
+  const wrapStart = `<div class="field${f.type === "checkbox" ? " check" : ""}" data-key="${f.key}">`;
   const lbl = f.label ? `<label class="lbl" for="${id}">${esc(f.label)}${f.required ? " *" : ""}</label>` : "";
   switch (f.type) {
     case "textarea": return `${wrapStart}${lbl}<textarea id="${id}" name="${f.key}">${esc(v)}</textarea>${hint}</div>`;
     case "checkbox": return `${wrapStart}<label><input type="checkbox" id="${id}" name="${f.key}" ${(rec[f.key] ?? f.default) ? "checked" : ""}>${esc(f.label)}</label>${hint}</div>`;
     case "select": return `${wrapStart}${lbl}<select id="${id}" name="${f.key}"><option value="">—</option>${f.options.map(o => `<option ${o === v ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>${hint}</div>`;
     case "ref": {
-      const opts = DB.list(f.ref).filter(r => r.active !== false || r.id === v).sort(SCHEMA[f.ref].sort);
-      return `${wrapStart}${lbl}<select id="${id}" name="${f.key}"><option value="">— none —</option>${opts.map(o => `<option value="${esc(o.id)}" ${o.id === v ? "selected" : ""}>${esc(SCHEMA[f.ref].title(o))}</option>`).join("")}</select>${hint}</div>`;
+      const S = SCHEMA[f.ref], opts = DB.list(f.ref).filter(r => r.active !== false || r.id === v).sort(S.sort);
+      return `${wrapStart}${lbl}<select id="${id}" name="${f.key}"><option value="">— none —</option>${opts.map(o => `<option value="${esc(o.id)}" ${o.id === v ? "selected" : ""}>${esc(S.title(o))}</option>`).join("")}</select>${hint}</div>`;
     }
-    case "multiref": {
-      const sel = new Set(rec[f.key] || []), opts = DB.list(f.ref).sort(SCHEMA[f.ref].sort);
-      if (!opts.length) return `${wrapStart}<div class="hint">Add services in the Services tab, then come back to assign them.</div></div>`;
-      return `${wrapStart}${lbl}<div class="checks">${opts.map(o => `<label><input type="checkbox" name="${f.key}" value="${esc(o.id)}" ${sel.has(o.id) ? "checked" : ""}>${esc(SCHEMA[f.ref].title(o))}</label>`).join("")}</div>${hint}</div>`;
+    case "refsearch": {
+      const S = SCHEMA[f.ref], label = S.refLabel || S.title, map = refMaps[f.key] = {};
+      const opts = DB.list(f.ref).sort(S.sort).map(o => { const l = label(o); map[l] = o.id; return l; });
+      const cur = DB.get(f.ref, v);
+      return `${wrapStart}${lbl}<input id="${id}" name="${f.key}__label" list="dl_${f.key}" autocomplete="off" value="${esc(cur ? label(cur) : "")}" placeholder="Name or phone">
+        <datalist id="dl_${f.key}">${opts.map(o => `<option value="${esc(o)}">`).join("")}</datalist>${hint}</div>`;
     }
     case "services_offered": {
       const offered = Object.fromEntries((rec[f.key] || []).map(o => [o.service_id, o]));
@@ -432,12 +750,14 @@ function fieldHtml(f, rec) {
           <input type="time" data-day="${d}" class="wh-end" value="${esc(x.end || "17:00")}">`; }).join("")}</div></div>`;
     }
     case "repeater": {
-      const rows = rec[f.key] || [];
+      repeaterDefs[f.key] = f;
+      let rows = rec[f.key] || [];
+      if (!rows.length && !rec.id && f.startWithRow) rows = [{}];
       return `${wrapStart}${lbl}<div class="rep-list">${rows.map(r => repRowHtml(f, r)).join("")}</div>
         <button type="button" onclick="addRepRow('${f.key}', this)">${esc(f.addLabel || "+ Add")}</button>${hint}</div>`;
     }
     default: {
-      const extra =(f.step ? ` step="${f.step}" inputmode="decimal"` : "") + (f.list ? ` list="${f.list}"` : "");
+      const extra = (f.step ? ` step="${f.step}" inputmode="decimal"` : "") + (f.list ? ` list="${f.list}"` : "");
       const val = f.type === "color" && !v ? PALETTE[DB.list("staff").length % PALETTE.length] : v;
       return `${wrapStart}${lbl}<input id="${id}" name="${f.key}" type="${f.type}" value="${esc(val)}"${req}${extra}>${hint}</div>`;
     }
@@ -449,8 +769,20 @@ function repRowHtml(f, row = {}) {
   return `<div class="rep-row">${inner}<button type="button" class="rm" onclick="this.parentElement.remove()" aria-label="Remove">×</button></div>`;
 }
 function addRepRow(key, btn) {
-  const f = Object.values(SCHEMA).flatMap(s => s.fields).find(x => x.key === key && x.type === "repeater");
-  btn.previousElementSibling.insertAdjacentHTML("beforeend", repRowHtml(f, {}));
+  btn.previousElementSibling.insertAdjacentHTML("beforeend", repRowHtml(repeaterDefs[key], {}));
+}
+const repeaterDefs = {};
+// Sub-fields inside repeater rows use data-sub instead of name, so they don't collide across rows.
+function subFieldHtml(f, row) {
+  const v = row[f.key] ?? "";
+  let input;
+  if (f.type === "select") {
+    const opts = typeof f.options === "function" ? f.options() : f.options.map(o => ({ value: o, label: o }));
+    input = `<select data-sub="${f.key}"><option value="">—</option>${opts.map(o => `<option value="${esc(o.value)}" ${o.value === v ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>`;
+  }
+  else if (f.type === "textarea") input = `<textarea data-sub="${f.key}">${esc(v)}</textarea>`;
+  else input = `<input data-sub="${f.key}" type="${f.type}" value="${esc(v)}"${f.type === "number" ? ' inputmode="decimal" step="any"' : ""}>`;
+  return `<div class="field"><label class="lbl">${esc(f.label)}</label>${input}</div>`;
 }
 
 // Fields grouped into collapsible sections; consecutive half-width fields share a row.
@@ -458,7 +790,8 @@ function layoutFields(fields, rec, flat = false) {
   let out = "", buf = [], groupOpen = false, gi = 0;
   const flush = () => { if (buf.length) { out += `<div class="grid2">${buf.join("")}</div>`; buf = []; } };
   for (const f of fields) {
-    if (f.section && !flat) {
+    if (f.section) {
+      if (flat) continue;
       flush(); if (groupOpen) out += `</div></details>`;
       const open = !rec.id || gi === 0; gi++;
       out += `<details class="group"${open ? " open" : ""}><summary>${esc(f.section)}</summary><div class="group-body">${f.hint ? `<div class="hint-top">${esc(f.hint)}</div>` : ""}`;
@@ -470,37 +803,32 @@ function layoutFields(fields, rec, flat = false) {
   flush(); if (groupOpen) out += `</div></details>`;
   return out;
 }
-// Sub-fields inside repeater rows use data-sub instead of name, so they don't collide across rows.
-function subFieldHtml(f, row) {
-  const v = row[f.key] ?? "";
-  const lbl = `<label class="lbl">${esc(f.label)}</label>`;
-  let input;
-  if (f.type === "select") input = `<select data-sub="${f.key}"><option value="">—</option>${f.options.map(o => `<option ${o === v ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`;
-  else if (f.type === "textarea") input = `<textarea data-sub="${f.key}">${esc(v)}</textarea>`;
-  else input = `<input data-sub="${f.key}" type="${f.type}" value="${esc(v)}">`;
-  return `<div class="field">${lbl}${input}</div>`;
-}
 
 function readForm(t, form) {
   const rec = {};
   for (const f of SCHEMA[t].fields) {
     if (!f.key) continue;
+    const box = $(`.field[data-key="${f.key}"]`, form);
     if (f.type === "checkbox") rec[f.key] = !!form.elements[f.key]?.checked;
-    else if (f.type === "multiref") rec[f.key] = $$(`input[name="${f.key}"]:checked`, form).map(i => i.value);
+    else if (f.type === "number") rec[f.key] = num(form.elements[f.key]?.value);
+    else if (f.type === "refsearch") {
+      const txt = (form.elements[f.key + "__label"]?.value || "").trim();
+      rec[f.key] = (refMaps[f.key] || {})[txt] || "";
+      if (!rec[f.key] && txt) rec[f.key + "__text"] = txt;
+    }
     else if (f.type === "services_offered") {
-      const num = el => el.value === "" ? "" : Number(el.value);
-      rec[f.key] = $$(`.field[data-key="${f.key}"] .svc-row[data-svc]`, form).filter(r => $(".svc-on", r).checked)
-        .map(r => ({ service_id: r.dataset.svc, price: num($(".svc-price", r)), duration_min: num($(".svc-dur", r)) }));
+      rec[f.key] = $$(`.svc-row[data-svc]`, box || form).filter(r => $(".svc-on", r).checked)
+        .map(r => ({ service_id: r.dataset.svc, price: num($(".svc-price", r).value), duration_min: num($(".svc-dur", r).value) }));
     }
     else if (f.type === "weekly_hours") {
-      const box = $(`.field[data-key="${f.key}"]`, form); rec[f.key] = {};
+      rec[f.key] = {};
       for (const [d] of DAYS) rec[f.key][d] = { on: $(`.wh-on[data-day="${d}"]`, box).checked, start: $(`.wh-start[data-day="${d}"]`, box).value, end: $(`.wh-end[data-day="${d}"]`, box).value };
     }
     else if (f.type === "repeater") {
-      rec[f.key] = $$(`.field[data-key="${f.key}"] .rep-row`, form).map(row => Object.fromEntries($$("[data-sub]", row).map(i => [i.dataset.sub, i.value.trim()])))
-        .filter(o => Object.values(o).some(Boolean));
+      const numKeys = new Set(f.subfields.filter(s => s.type === "number").map(s => s.key));
+      rec[f.key] = $$(".rep-row", box).map(row => Object.fromEntries($$("[data-sub]", row).map(i => [i.dataset.sub, numKeys.has(i.dataset.sub) ? num(i.value) : i.value.trim()])))
+        .filter(o => Object.values(o).some(x => x !== ""));
     }
-    else if (f.type === "number") { const s = form.elements[f.key]?.value; rec[f.key] = s === "" || s == null ? "" : Number(s); }
     else rec[f.key] = (form.elements[f.key]?.value ?? "").trim();
   }
   return rec;
@@ -511,30 +839,49 @@ function applyShowIf(t, form) {
   for (const f of SCHEMA[t].fields) if (f.showIf) { const el = $(`.field[data-key="${f.key}"]`, form); if (el) el.style.display = f.showIf(cur) ? "" : "none"; }
 }
 
-function openForm(t, id) {
-  const S = SCHEMA[t], rec = id ? DB.get(t, id) : {};
+function visitHistory(clientId) {
+  const appts = DB.list("appointments").filter(a => a.client_id === clientId).sort(SCHEMA.appointments.sort);
+  const done = appts.filter(a => a.status === "Completed");
+  const spent = done.reduce((s, a) => s + (Number(a.total_price) || 0), 0);
+  return `<details class="group" open><summary>Visit history (${appts.length})</summary><div class="group-body">
+    ${appts.length ? `<div class="hint-top">${done.length} completed visit${done.length === 1 ? "" : "s"}${spent ? ` · ${money(spent)} lifetime` : ""}${done[0] ? ` · last visit ${fmtDate(done[0].date)}` : ""}</div>` : ""}
+    <div class="history">${appts.map(a => `<div class="h-row" data-appt="${esc(a.id)}"><span><b>${esc(fmtDate(a.date))}</b> ${esc(fmtTime(a.start_time))}<br><span style="color:var(--muted)">${esc(serviceNames(a) || "—")} · ${esc(staffName(DB.get("staff", a.staff_id) || {}))}</span></span>
+      <span style="text-align:right">${esc(money(a.total_price))}<br><span class="tag">${esc(a.status || "")}</span></span></div>`).join("") || `<div class="hint-top">No visits yet.</div>`}</div>
+    <button type="button" id="bookForClient" style="margin:6px 0 10px">+ Book appointment</button></div></details>`;
+}
+
+function openForm(t, id, preset = {}) {
+  const S = SCHEMA[t], rec = id ? DB.get(t, id) : { ...preset };
   const cats = [...new Set(DB.list("services").map(s => s.category).filter(Boolean))];
+  const brands = [...new Set(DB.list("products").map(s => s.brand).filter(Boolean))];
   openSheet(`<form id="recForm" novalidate>
     <div class="sheet-head"><button type="button" onclick="closeSheet()">Cancel</button>
       <h2>${id ? esc(S.title(rec)) : "New " + esc(S.singular.toLowerCase())}</h2>
       <button class="primary" type="submit">Save</button></div>
     ${layoutFields(S.fields, rec)}
+    ${t === "clients" && id ? visitHistory(id) : ""}
     <datalist id="categoryList">${cats.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
+    <datalist id="brandList">${brands.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
     ${id ? `<div class="notice">Added ${new Date(rec.created_at).toLocaleDateString()} · Last updated ${new Date(rec.updated_at).toLocaleString()}</div>
       <br><button type="button" class="danger" id="delBtn">Delete ${esc(S.singular.toLowerCase())}</button>` : ""}
   </form>`);
   const form = $("#recForm");
   applyShowIf(t, form);
   form.onchange = () => applyShowIf(t, form);
+  if (t === "clients" && id) {
+    $("#bookForClient").onclick = () => openForm("appointments", null, { client_id: id, date: today(), start_time: nextSlot(), staff_id: rec.preferred_staff_id || "" });
+    $$("[data-appt]", form).forEach(el => el.onclick = () => openForm("appointments", el.dataset.appt));
+  }
   form.onsubmit = e => {
     e.preventDefault();
     const data = readForm(t, form);
-    const missing = S.fields.filter(f => f.required && !data[f.key]);
-    if (missing.length) { toast(missing.map(f => f.label).join(", ") + " required"); return; }
     if (t === "clients" && !id) {
       const dupe = findClientDupe(data);
       if (dupe && !confirm(`${fullName(dupe)} already has this ${phoneKey(dupe.phone) && phoneKey(dupe.phone) === phoneKey(data.phone) ? "phone number" : "email"}. Save anyway?`)) return;
     }
+    const missing = S.fields.filter(f => f.required && (data[f.key] === "" || data[f.key] == null) && !(f.type === "refsearch" && data[f.key + "__text"]));
+    if (missing.length) { toast(missing.map(f => f.label).join(", ") + " required"); return; }
+    if (S.beforeSave) S.beforeSave(data, rec);
     DB.upsert(t, id ? { ...data, id } : data);
     closeSheet(); render(); toast("Saved");
   };
@@ -543,6 +890,7 @@ function openForm(t, id) {
     DB.remove(t, id);
     // clean up references to deleted records
     if (t === "staff") DB.list("clients").filter(c => c.preferred_staff_id === id).forEach(c => DB.upsert("clients", { ...c, preferred_staff_id: "" }));
+    if (t === "memberships") DB.list("clients").filter(c => c.membership_id === id).forEach(c => DB.upsert("clients", { ...c, membership_id: "" }));
     if (t === "services") DB.list("staff").filter(s => (s.services_offered || []).some(o => o.service_id === id)).forEach(s => DB.upsert("staff", { ...s, services_offered: s.services_offered.filter(o => o.service_id !== id) }));
     closeSheet(); render(); toast("Deleted");
   };
@@ -554,38 +902,28 @@ function findClientDupe(c) {
 }
 
 /* ===================== Data tab ===================== */
+const IMPORTABLE = ["clients","staff","services","appointments","products","giftcards"];
 function renderData() {
   const m = DB.meta(), n = t => DB.list(t).length;
-  $("#view").innerHTML = `
+  $("#view").innerHTML = `${backLink()}
     <div class="stats">
       <div class="stat"><b>${n("clients")}</b><span>Clients</span></div>
       <div class="stat"><b>${n("staff")}</b><span>Staff</span></div>
-      <div class="stat"><b>${n("services")}</b><span>Services</span></div>
+      <div class="stat"><b>${n("appointments")}</b><span>Appointments</span></div>
     </div>
-    <div class="card"><h2>Salon name</h2>
-      <div class="row"><input id="salonInput" value="${esc(m.salon_name)}" placeholder="Your salon's name"><button class="primary" id="salonSave">Save</button></div></div>
     <div class="card"><h2>Import from your current platform</h2>
-      <p>Export clients, staff or services as a CSV from your booking platform, then import it here. Columns are matched automatically and you can adjust them before importing.</p>
-      <div class="row">
-        <button onclick="pickCsv('clients')">Clients CSV</button>
-        <button onclick="pickCsv('staff')">Staff CSV</button>
-        <button onclick="pickCsv('services')">Services CSV</button>
-      </div></div>
+      <p>Export each list as a CSV from your booking platform, then import it here. Columns are matched automatically and you can adjust them. <b>Import in this order:</b> staff → services → clients → appointment history, so everything links up.</p>
+      <div class="row wrap">${IMPORTABLE.map(t => `<button onclick="pickCsv('${t}')">${SCHEMA[t].label}</button>`).join("")}</div></div>
     <div class="card"><h2>Backup</h2>
       <p>Everything is stored <b>only in this browser on this device</b>. Download a backup regularly, and use it to move your data to another device.${m.last_backup ? ` Last backup: ${new Date(m.last_backup).toLocaleString()}.` : " <b>No backup yet.</b>"}</p>
       <div class="row"><button class="primary" id="backupBtn">Download backup</button><button id="restoreBtn">Restore backup</button></div></div>
     <div class="card"><h2>Export to spreadsheet</h2>
       <p>CSV files open in Excel, Numbers or Google Sheets.</p>
-      <div class="row">
-        <button onclick="exportCsv('clients')">Clients</button>
-        <button onclick="exportCsv('staff')">Staff</button>
-        <button onclick="exportCsv('services')">Services</button>
-      </div></div>
+      <div class="row wrap">${TABLES.map(t => `<button onclick="exportCsv('${t}')">${SCHEMA[t].label}</button>`).join("")}</div></div>
     <div class="card"><h2>Danger zone</h2>
       <p>Erase all data stored in this browser.</p>
       <button class="danger" id="wipeBtn">Erase everything</button></div>
     <div class="notice">Don't enter Social Security numbers, bank account details, or other payroll/tax info here; those stay with your payroll provider.</div>`;
-  $("#salonSave").onclick = () => { DB.setMeta("salon_name", $("#salonInput").value.trim()); render(); toast("Saved"); };
   $("#backupBtn").onclick = () => {
     download(`salon-hub-backup-${today()}.json`, JSON.stringify(DB.exportAll(), null, 2), "application/json");
     DB.setMeta("last_backup", now()); renderData();
@@ -596,7 +934,7 @@ function renderData() {
     try { DB.replaceAll(obj); render(); toast("Backup restored"); } catch (e) { toast(e.message); }
   });
   $("#wipeBtn").onclick = () => {
-    if (prompt('This erases every client, staff member and service in this browser. Type ERASE to confirm.') !== "ERASE") return;
+    if (prompt('This erases everything in this browser. Type ERASE to confirm.') !== "ERASE") return;
     DB.wipe(); render(); toast("All data erased");
   };
 }
@@ -609,8 +947,9 @@ function pickFile(accept, cb) {
 
 /* ===================== CSV ===================== */
 function parseCsv(text) {
-  text = text.replace(/^﻿/, "");
-  const delim = (text.split("\n")[0].match(/\t/g) || []).length > (text.split("\n")[0].match(/,/g) || []).length ? "\t" : ",";
+  text = text.replace(/^\uFEFF/, "");
+  const first = text.split("\n")[0];
+  const delim = (first.match(/\t/g) || []).length > (first.match(/,/g) || []).length ? "\t" : ",";
   const rows = []; let row = [], cell = "", q = false;
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
@@ -633,27 +972,49 @@ const ALIASES = {
   phone: ["phone","mobile","mobilephone","cell","cellphone","phonenumber","mobilenumber","primaryphone","telephone"],
   email: ["email","emailaddress","mail"],
   birthday: ["birthday","birthdate","dob","dateofbirth"],
-  notes: ["notes","note","comments","comment","clientnotes"],
+  notes: ["notes","note","comments","comment","clientnotes","appointmentnotes"],
   formula_notes: ["formula","formulas","colorformula","colornotes","formulanotes"],
   allergies: ["allergies","allergy","sensitivities","medicalnotes"],
-  external_id: ["id","clientid","customerid","staffid","employeeid","serviceid","externalid","recordid"],
+  external_id: ["id","clientid","customerid","staffid","employeeid","serviceid","externalid","recordid","appointmentid","bookingid","productid","giftcardid"],
   role: ["role","title","jobtitle","position"],
   start_date: ["startdate","hiredate","datehired"],
-  name: ["service","servicename","name","title"],
-  category: ["category","servicecategory","group","type"],
-  duration_min: ["duration","durationmin","durationminutes","length","minutes","time"],
+  name: ["service","servicename","name","title","product","productname","item"],
+  category: ["category","servicecategory","group","type","productcategory"],
+  duration_min: ["duration","durationmin","durationminutes","length","minutes"],
   price: ["price","cost","amount","serviceprice","rate"],
   sms_opt_in: ["smsoptin","textoptin","acceptssms","smsmarketing","textmarketing"],
   email_opt_in: ["emailoptin","acceptsemail","emailmarketing","marketingemail"],
   preferred_staff_id: ["preferredstaff","preferredstylist","stylist","provider","preferredprovider"],
+  // appointments
+  date: ["date","appointmentdate","visitdate","servicedate","bookingdate"],
+  start_time: ["time","starttime","appointmenttime","start"],
+  client_id: ["client","customer","clientname","customername","guest","clientphone","clientid","customerid"],
+  staff_id: ["staff","stylist","provider","employee","staffname","stylistname","providername","teammember"],
+  _service: ["service","services","servicename","item","items"],
+  total_price: ["total","price","amount","sales","revenue","totalprice","servicetotal"],
+  status: ["status","appointmentstatus","state"],
+  // products
+  brand: ["brand","manufacturer","vendor"],
+  sku: ["sku","barcode","upc","itemcode"],
+  retail_price: ["retailprice","price","retail","sellprice"],
+  stock_qty: ["stock","qty","quantity","onhand","instock","inventory"],
+  supplier: ["supplier","distributor"],
+  // gift cards
+  code: ["code","cardcode","giftcardcode","cardnumber","number"],
+  balance: ["balance","remaining","remainingbalance","currentbalance"],
+  amount: ["amount","originalamount","value","initialvalue"],
+  recipient_name: ["recipient","recipientname","to"],
+  issued: ["issued","issuedate","purchasedate","created","sold"],
+  expires: ["expires","expiration","expirationdate","expirydate"],
 };
 function importableFields(t) {
   const base = SCHEMA[t].fields.filter(f => f.key && !COMPLEX_TYPES.has(f.type)).map(f => ({ key: f.key, label: f.label }));
-  if (t !== "services") base.unshift({ key: "_full_name", label: "Full name (split into first/last)" });
+  if (t === "clients" || t === "staff") base.unshift({ key: "_full_name", label: "Full name (split into first/last)" });
+  if (t === "appointments") base.splice(4, 0, { key: "_service", label: "Service(s) (by name)" });
   return base;
 }
-function guessField(t, header) {
-  const h = norm(header), fields = importableFields(t);
+function guessField(t, header, used) {
+  const h = norm(header), fields = importableFields(t).filter(f => !used.has(f.key));
   const direct = fields.find(f => norm(f.key) === h || norm(f.label) === h);
   if (direct) return direct.key;
   for (const f of fields) if ((ALIASES[f.key] || []).includes(h)) return f.key;
@@ -662,58 +1023,111 @@ function guessField(t, header) {
 function toIsoDate(s) {
   s = String(s || "").trim(); if (!s) return "";
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-  const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.](\d{2,4}))?$/);
+  const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.](\d{2,4}))?/);
   if (m) { let y = m[3] ? +m[3] : 1900; if (y < 100) y += y > 30 ? 1900 : 2000; return `${y}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`; }
-  const d = new Date(s); return isNaN(d) ? "" : d.toISOString().slice(0, 10);
+  const d = new Date(s); return isNaN(d) ? "" : localISO(d);
+}
+function toTime(s) {
+  const m = String(s || "").trim().match(/(\d{1,2})(?::(\d{2}))?\s*([ap])?\.?m?\.?/i); if (!m) return "";
+  let h = +m[1]; const min = m[2] || "00", ap = (m[3] || "").toLowerCase();
+  if (ap === "p" && h < 12) h += 12; if (ap === "a" && h === 12) h = 0;
+  return h > 23 ? "" : `${String(h).padStart(2, "0")}:${min}`;
 }
 function truthy(s) { return /^(y|yes|true|1|x|opted ?in|subscribed)$/i.test(String(s).trim()); }
+function matchOption(options, v) { const n = norm(v); return options.find(o => norm(o) === n) || options.find(o => n && norm(o).startsWith(n.slice(0, 4))) || ""; }
+
+// Find a record in another table by name, phone, email, code or old-system ID.
+function makeResolver(table) {
+  const idx = {};
+  const add = (k, id) => { if (k && !(k in idx)) idx[k] = id; };
+  for (const r of DB.list(table)) {
+    add("x:" + norm(r.external_id), r.id);
+    if (r.phone) add("p:" + phoneKey(r.phone), r.id);
+    if (r.email) add("e:" + r.email.toLowerCase(), r.id);
+    add("n:" + norm(SCHEMA[table].title(r)), r.id);
+    add("n:" + norm(fullName(r)), r.id);
+    add("n:" + norm(r.display_name), r.id);
+    add("n:" + norm(r.name), r.id);
+    if (table === "staff") add("n:" + norm(r.first_name), r.id);
+  }
+  delete idx["x:"]; delete idx["n:"];
+  return v => { v = String(v || "").trim(); if (!v) return "";
+    return idx["x:" + norm(v)] || (phoneKey(v).length === 10 && idx["p:" + phoneKey(v)]) || idx["e:" + v.toLowerCase()] || idx["n:" + norm(v)] || ""; };
+}
 
 function pickCsv(t) { pickFile(".csv,.tsv,.txt,text/csv", text => showImport(t, parseCsv(text))); }
 
 function showImport(t, rows) {
   if (rows.length < 2) return toast("No rows found in that file");
-  const headers = rows[0], body = rows.slice(1), fields = importableFields(t);
+  const headers = rows[0], body = rows.slice(1), fields = importableFields(t), used = new Set();
+  const guesses = headers.map(h => { const g = guessField(t, h, used); if (g) used.add(g); return g; });
   const opts = sel => `<option value="">— skip —</option>` + fields.map(f => `<option value="${f.key}" ${f.key === sel ? "selected" : ""}>${esc(f.label)}</option>`).join("");
   openSheet(`<div class="sheet-head"><button onclick="closeSheet()">Cancel</button><h2>Import ${SCHEMA[t].label.toLowerCase()}</h2><button class="primary" id="doImport">Import</button></div>
     <p class="hint" style="color:var(--muted)">${body.length} rows found. Match each column in your file to a Salon Hub field.</p>
     <div class="map-row" style="font-weight:700;color:var(--muted)"><span>Your column (example)</span><span>Salon Hub field</span></div>
-    ${headers.map((h, i) => `<div class="map-row"><span><b>${esc(h)}</b><br><small style="color:var(--muted)">${esc((body.find(r => r[i]) || [])[i] || "")}</small></span><select data-col="${i}">${opts(guessField(t, h))}</select></div>`).join("")}
-    ${t === "clients" ? `<div class="field check" style="margin-top:12px"><label><input type="checkbox" id="skipDupes" checked>Skip clients whose phone or email already exists</label></div>` : ""}`);
-  $("#doImport").onclick = () => {
-    const map = $$("select[data-col]").map(s => ({ col: +s.dataset.col, key: s.value })).filter(m => m.key);
-    if (!map.length) return toast("Match at least one column");
-    const staffByName = Object.fromEntries(DB.list("staff").flatMap(s => [[norm(fullName(s)), s.id], [norm(s.display_name), s.id], [norm(s.first_name), s.id]]).filter(([k]) => k));
-    const numKeys = new Set(SCHEMA[t].fields.filter(f => f.type === "number").map(f => f.key));
-    const boolKeys = new Set(SCHEMA[t].fields.filter(f => f.type === "checkbox").map(f => f.key));
-    const dateKeys = new Set(SCHEMA[t].fields.filter(f => f.type === "date").map(f => f.key));
-    const out = []; let skipped = 0;
-    const skipDupes = $("#skipDupes")?.checked;
-    const seen = new Set();
-    for (const r of body) {
-      const rec = {};
-      for (const f of SCHEMA[t].fields) if (f.key && f.default !== undefined) rec[f.key] = f.default;
-      for (const { col, key } of map) {
-        let v = (r[col] ?? "").trim(); if (v === "") continue;
-        if (key === "_full_name") { const parts = v.includes(",") ? v.split(",").map(s => s.trim()).reverse() : v.split(/\s+/); rec.first_name = rec.first_name || parts[0]; rec.last_name = rec.last_name || parts.slice(1).join(" "); continue; }
-        if (numKeys.has(key)) { const n = parseFloat(v.replace(/[^0-9.\-]/g, "")); if (!isNaN(n)) rec[key] = n; continue; }
-        if (boolKeys.has(key)) { rec[key] = truthy(v); continue; }
-        if (dateKeys.has(key)) { rec[key] = toIsoDate(v); continue; }
-        if (key === "preferred_staff_id") { rec[key] = staffByName[norm(v)] || ""; if (!rec[key]) rec.notes = [rec.notes, `Preferred stylist (from import): ${v}`].filter(Boolean).join("\n"); continue; }
-        rec[key] = v;
+    ${headers.map((h, i) => `<div class="map-row"><span><b>${esc(h)}</b><br><small style="color:var(--muted)">${esc((body.find(r => r[i]) || [])[i] || "")}</small></span><select data-col="${i}">${opts(guesses[i])}</select></div>`).join("")}
+    ${t === "clients" ? `<div class="field check" style="margin-top:12px"><label><input type="checkbox" id="skipDupes" checked>Skip clients whose phone or email already exists</label></div>` : ""}
+    ${t === "appointments" ? `<div class="field check" style="margin-top:12px"><label><input type="checkbox" id="mkClients" checked>Create clients that aren't in Salon Hub yet</label></div>` : ""}`);
+  $("#doImport").onclick = () => runImport(t, body);
+}
+
+function runImport(t, body) {
+  const map = $$("select[data-col]").map(s => ({ col: +s.dataset.col, key: s.value })).filter(m => m.key);
+  if (!map.length) return toast("Match at least one column");
+  const F = Object.fromEntries(SCHEMA[t].fields.filter(f => f.key).map(f => [f.key, f]));
+  const resolvers = {}, resolve = (table, v) => (resolvers[table] ||= makeResolver(table))(v);
+  const skipDupes = $("#skipDupes")?.checked, mkClients = $("#mkClients")?.checked;
+  const out = [], seen = new Set(); let skipped = 0, newClients = 0, newStaff = 0;
+  for (const r of body) {
+    const rec = {}, unmatched = [];
+    for (const f of Object.values(F)) if (f.default !== undefined) rec[f.key] = f.default;
+    for (const { col, key } of map) {
+      const v = (r[col] ?? "").trim(); if (v === "") continue;
+      const f = F[key];
+      if (key === "_full_name") { const parts = v.includes(",") ? v.split(",").map(s => s.trim()).reverse() : v.split(/\s+/); rec.first_name = rec.first_name || parts[0]; rec.last_name = rec.last_name || parts.slice(1).join(" "); }
+      else if (key === "_service") {
+        rec.services = rec.services || [];
+        for (const name of v.split(/[;,+|]/).map(s => s.trim()).filter(Boolean)) { const id = resolve("services", name); if (id) rec.services.push({ service_id: id }); else unmatched.push("Service: " + name); }
       }
-      const reqKey = SCHEMA[t].fields.find(f => f.required).key;
-      if (!rec[reqKey]) { skipped++; continue; }
-      if (t === "clients" && skipDupes) {
-        const k = phoneKey(rec.phone) || (rec.email || "").toLowerCase();
-        if (findClientDupe(rec) || (k && seen.has(k))) { skipped++; continue; }
-        if (k) seen.add(k);
+      else if (f.type === "number") { const n = parseFloat(v.replace(/[^0-9.\-]/g, "")); if (!isNaN(n)) rec[key] = n; }
+      else if (f.type === "checkbox") rec[key] = truthy(v);
+      else if (f.type === "date") rec[key] = toIsoDate(v);
+      else if (f.type === "time") rec[key] = toTime(v);
+      else if (f.type === "select") { const o = matchOption(f.options, v); if (o) rec[key] = o; else unmatched.push(`${f.label}: ${v}`); }
+      else if (f.type === "ref" || f.type === "refsearch") {
+        let id = resolve(f.ref, v);
+        if (!id && f.ref === "clients" && mkClients) {
+          const isPhone = digits(v).length >= 10, parts = v.split(/\s+/);
+          id = DB.upsert("clients", isPhone ? { first_name: "Imported client", phone: v } : { first_name: parts[0], last_name: parts.slice(1).join(" ") });
+          resolvers.clients = null; newClients++;
+        }
+        if (!id && f.ref === "staff" && t === "appointments") {
+          const parts = v.split(/\s+/);
+          id = DB.upsert("staff", { first_name: parts[0], last_name: parts.slice(1).join(" "), active: false, notes: "Added automatically while importing appointment history." });
+          resolvers.staff = null; newStaff++;
+        }
+        if (id) rec[key] = id; else unmatched.push(`${f.label}: ${v}`);
       }
-      out.push(rec);
+      else rec[key] = v;
     }
-    DB.bulkInsert(t, out);
-    closeSheet(); tab = t; render();
-    toast(`Imported ${out.length}${skipped ? `, skipped ${skipped}` : ""}`);
-  };
+    if (t === "appointments" && rec.date && !rec.start_time && /\d:\d/.test(r.join(" "))) {
+      const dateCol = map.find(m => m.key === "date"); if (dateCol) rec.start_time = toTime(r[dateCol.col].split(/\s+/).slice(1).join(" "));
+    }
+    if (unmatched.length) rec.notes = [rec.notes, "(Imported: " + unmatched.join("; ") + ")"].filter(Boolean).join("\n");
+    const req = Object.values(F).filter(f => f.required).map(f => f.key);
+    if (req.some(k => rec[k] === "" || rec[k] == null)) { skipped++; continue; }
+    if (t === "clients" && skipDupes) {
+      const k = phoneKey(rec.phone) || (rec.email || "").toLowerCase();
+      if (findClientDupe(rec) || (k && seen.has(k))) { skipped++; continue; }
+      if (k) seen.add(k);
+    }
+    if (t === "appointments") { if (!rec.status) rec.status = rec.date < today() ? "Completed" : "Booked"; rec.booked_via = rec.booked_via || "Imported"; prepareAppointment(rec); }
+    if (SCHEMA[t].beforeSave && t !== "appointments") SCHEMA[t].beforeSave(rec, {});
+    out.push(rec);
+  }
+  DB.bulkInsert(t, out);
+  closeSheet(); tab = t === "appointments" ? "calendar" : t; render();
+  toast(`Imported ${out.length}${skipped ? `, skipped ${skipped}` : ""}${newClients ? `, ${newClients} new clients` : ""}${newStaff ? `, ${newStaff} past stylists` : ""}`);
 }
 
 function exportCsv(t) {
@@ -722,15 +1136,15 @@ function exportCsv(t) {
   if (!rows.length) return toast("Nothing to export yet");
   const cell = (f, r) => {
     const v = r[f.key];
-    if (f.type === "ref") { const x = DB.get(f.ref, v); return x ? SCHEMA[f.ref].title(x) : ""; }
-    if (f.type === "multiref") return (v || []).map(id => DB.get(f.ref, id)).filter(Boolean).map(SCHEMA[f.ref].title).join("; ");
+    if (f.type === "ref" || f.type === "refsearch") { const x = DB.get(f.ref, v); return x ? SCHEMA[f.ref].title(x) : ""; }
     if (f.type === "checkbox") return v ? "Yes" : "No";
-    if (f.type === "services_offered") return (v || []).map(o => { const s = DB.get("services", o.service_id); if (!s) return ""; const p = o.price !== "" && o.price != null ? ` ${money(o.price)}` : ""; return s.name + p; }).filter(Boolean).join("; ");
+    if (f.type === "services_offered") return (v || []).map(o => { const s = DB.get("services", o.service_id); if (!s) return ""; return s.name + (o.price !== "" && o.price != null ? ` ${money(o.price)}` : ""); }).filter(Boolean).join("; ");
     if (f.type === "weekly_hours") return DAYS.filter(([d]) => v?.[d]?.on).map(([d, n]) => `${n} ${v[d].start}-${v[d].end}`).join("; ");
-    if (f.type === "repeater") return (v || []).map(o => Object.values(o).filter(Boolean).join(" ")).join("; ");
+    if (f.type === "repeater") return (v || []).map(o => Object.entries(o).map(([k, x]) => k === "service_id" ? DB.get("services", x)?.name : x).filter(x => x !== "" && x != null).join(" ")).join("; ");
     return v ?? "";
   };
-  download(`${t}-${today()}.csv`, toCsv([["id", ...fields.map(f => f.label)], ...rows.map(r => [r.id, ...fields.map(f => cell(f, r))])]), "text/csv");
+  const extra = t === "appointments" ? [["End time", r => r.end_time], ["Minutes", r => r.duration_min]] : [];
+  download(`${t}-${today()}.csv`, toCsv([["id", ...fields.map(f => f.label), ...extra.map(e => e[0])], ...rows.map(r => [r.id, ...fields.map(f => cell(f, r)), ...extra.map(e => e[1](r) ?? "")])]), "text/csv");
 }
 
 render();
