@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Salon Hub</title>
+<style>
+  :root {
+    --bg: #f6f4f1; --card: #fff; --ink: #1f1d1a; --muted: #77716a; --line: #e6e1da;
+    --accent: #8a5a44; --accent-ink: #fff; --danger: #b3261e; --ok: #2e7d4f;
+    --radius: 14px; --tabbar: 64px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#151412; --card:#1f1d1a; --ink:#f1ede7; --muted:#a29a90; --line:#34302b; --accent:#c98b6b; --accent-ink:#151412; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; background:var(--bg); color:var(--ink);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  header { position:sticky; top:0; z-index:5; background:var(--bg);
+    padding: calc(env(safe-area-inset-top) + 12px) 16px 8px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0 0 8px; font-size:22px; display:flex; justify-content:space-between; align-items:center; }
+  header h1 small { font-size:13px; color:var(--muted); font-weight:500; }
+  main { padding: 12px 16px calc(var(--tabbar) + env(safe-area-inset-bottom) + 24px); max-width:760px; margin:0 auto; }
+  .row { display:flex; gap:8px; align-items:center; }
+  input, select, textarea { width:100%; font:inherit; color:inherit; background:var(--card);
+    border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+  textarea { min-height:72px; resize:vertical; }
+  input[type=checkbox] { width:auto; transform:scale(1.25); margin-right:8px; }
+  input[type=color] { padding:2px; height:42px; }
+  button { font:inherit; border:0; border-radius:10px; padding:10px 14px; cursor:pointer;
+    background:var(--line); color:var(--ink); white-space:nowrap; }
+  button.primary { background:var(--accent); color:var(--accent-ink); font-weight:600; }
+  button.danger { background:transparent; color:var(--danger); border:1px solid var(--danger); }
+  button.link { background:none; padding:0; color:var(--accent); text-decoration:underline; }
+  .list { display:flex; flex-direction:column; gap:8px; margin-top:12px; }
+  .item { background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:12px 14px; display:flex; gap:12px; align-items:center; cursor:pointer; }
+  .item .dot { width:12px; height:12px; border-radius:50%; flex:none; }
+  .item .main { flex:1; min-width:0; }
+  .item .title { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .item .sub { color:var(--muted); font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .item .right { color:var(--muted); font-size:14px; text-align:right; flex:none; }
+  .tag { display:inline-block; font-size:12px; padding:2px 8px; border-radius:99px; background:var(--line); color:var(--muted); }
+  .empty { text-align:center; color:var(--muted); padding:40px 16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin-bottom:12px; }
+  .card h2 { margin:0 0 4px; font-size:17px; }
+  .card p { margin:4px 0 12px; color:var(--muted); font-size:14px; }
+  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:12px; text-align:center; }
+  .stat b { display:block; font-size:24px; }
+  .stat span { color:var(--muted); font-size:13px; }
+  nav.tabs { position:fixed; bottom:0; left:0; right:0; z-index:5; display:flex; background:var(--card);
+    border-top:1px solid var(--line); padding-bottom:env(safe-area-inset-bottom); }
+  nav.tabs button { flex:1; background:none; border-radius:0; height:var(--tabbar); color:var(--muted);
+    font-size:12px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
+  nav.tabs button .ico { font-size:20px; }
+  nav.tabs button.active { color:var(--accent); font-weight:600; }
+  /* Sheet (modal) */
+  .sheet-bg { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:10; display:none; }
+  .sheet-bg.open { display:block; }
+  .sheet { position:fixed; left:0; right:0; bottom:0; max-height:92vh; overflow:auto; z-index:11;
+    background:var(--bg); border-radius:18px 18px 0 0; padding:16px 16px calc(env(safe-area-inset-bottom) + 24px);
+    transform:translateY(100%); transition:transform .2s ease; max-width:760px; margin:0 auto; }
+  .sheet.open { transform:none; }
+  .sheet-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:8px; }
+  .sheet-head h2 { margin:0; font-size:19px; }
+  .field { margin-bottom:12px; }
+  .field label.lbl { display:block; font-size:13px; color:var(--muted); margin-bottom:4px; font-weight:600; }
+  .field .hint { font-size:12px; color:var(--muted); margin-top:4px; }
+  .field.check label { display:flex; align-items:center; font-size:15px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:0 10px; }
+  .section-title { font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+    margin:18px 0 8px; font-weight:700; }
+  .checks { display:flex; flex-wrap:wrap; gap:6px; }
+  .checks label { display:flex; align-items:center; background:var(--card); border:1px solid var(--line);
+    border-radius:99px; padding:6px 12px; font-size:14px; }
+  .map-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; align-items:center; margin-bottom:6px; font-size:14px; }
+  .toast { position:fixed; left:50%; bottom:calc(var(--tabbar) + 20px); transform:translateX(-50%);
+    background:var(--ink); color:var(--bg); padding:10px 16px; border-radius:99px; z-index:20;
+    font-size:14px; opacity:0; transition:opacity .2s; pointer-events:none; }
+  .toast.show { opacity:1; }
+  .notice { font-size:13px; color:var(--muted); background:var(--card); border:1px dashed var(--line);
+    border-radius:10px; padding:10px 12px; margin-top:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span id="salonName">Salon Hub</span> <small id="tabTitle">Clients</small></h1>
+  <div class="row" id="toolbar">
+    <input id="search" type="search" placeholder="Search…" autocomplete="off">
+    <button class="primary" id="addBtn">+ Add</button>
+  </div>
+</header>
+
+<main id="view"></main>
+
+<nav class="tabs">
+  <button data-tab="clients" class="active"><span class="ico">👤</span>Clients</button>
+  <button data-tab="staff"><span class="ico">✂️</span>Staff</button>
+  <button data-tab="services"><span class="ico">📋</span>Services</button>
+  <button data-tab="data"><span class="ico">⚙️</span>Data</button>
+</nav>
+
+<div class="sheet-bg" id="sheetBg"></div>
+<div class="sheet" id="sheet"></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="fileInput" hidden>
+
+<script>
+"use strict";
+/* =====================================================================
+   SCHEMA — every table, field and form is driven from this.
+   When we move to a real database, these map 1:1 to table columns.
+   ===================================================================== */
+const ROLES = ["Stylist","Colorist","Barber","Nail Tech","Esthetician","Assistant","Front Desk","Manager","Owner"];
+const PAY_TYPES = ["Commission","Hourly","Hourly + Commission","Booth Rent","Salary"];
+const PALETTE = ["#8a5a44","#3f6e8c","#6b8e4e","#a8577e","#c28a2c","#5b5fa8","#3d8a80","#b0533c"];
+
+const SCHEMA = {
+  clients: {
+    label: "Clients", singular: "Client",
+    fields: [
+      { section: "Contact" },
+      { key:"first_name", label:"First name", type:"text", required:true, half:true },
+      { key:"last_name",  label:"Last name",  type:"text", half:true },
+      { key:"phone",      label:"Mobile phone", type:"tel", half:true },
+      { key:"email",      label:"Email", type:"email", half:true },
+      { key:"birthday",   label:"Birthday", type:"date", half:true },
+      { key:"preferred_staff_id", label:"Preferred stylist", type:"ref", ref:"staff", half:true },
+      { section: "Service notes" },
+      { key:"allergies",     label:"Allergies / sensitivities", type:"textarea", hint:"Patch-test results, product reactions, etc." },
+      { key:"formula_notes", label:"Color formulas", type:"textarea" },
+      { key:"notes",         label:"General notes", type:"textarea" },
+      { section: "Communication" },
+      { key:"sms_opt_in",   label:"OK to text (reminders/marketing)", type:"checkbox" },
+      { key:"email_opt_in", label:"OK to email", type:"checkbox" },
+      { section: "Migration" },
+      { key:"external_id", label:"ID in old booking system", type:"text", hint:"Lets us match records when we merge history from the current platform." },
+    ],
+    title: r => fullName(r) || "(no name)",
+    sub: r => [fmtPhone(r.phone), r.email].filter(Boolean).join(" · "),
+    right: r => { const s = DB.get("staff", r.preferred_staff_id); return s ? staffName(s) : ""; },
+    dot: r => { const s = DB.get("staff", r.preferred_staff_id); return s?.calendar_color; },
+    sort: (a,b) => (a.last_name||"").localeCompare(b.last_name||"") || (a.first_name||"").localeCompare(b.first_name||""),
+    searchText: r => [r.first_name,r.last_name,r.phone,digits(r.phone),r.email,r.external_id].join(" "),
+  },
+  staff: {
+    label: "Staff", singular: "Team member",
+    fields: [
+      { section: "Basics" },
+      { key:"first_name",   label:"First name", type:"text", required:true, half:true },
+      { key:"last_name",    label:"Last name",  type:"text", half:true },
+      { key:"display_name", label:"Name shown to clients", type:"text", half:true, hint:"Optional, e.g. “Jess R.”" },
+      { key:"role",         label:"Role", type:"select", options:ROLES, half:true },
+      { key:"phone",        label:"Phone", type:"tel", half:true },
+      { key:"email",        label:"Email", type:"email", half:true },
+      { key:"start_date",   label:"Start date", type:"date", half:true },
+      { key:"calendar_color", label:"Calendar color", type:"color", half:true },
+      { key:"active",       label:"Currently active", type:"checkbox", default:true },
+      { section: "Pay structure" },
+      { key:"pay_type",       label:"Pay type", type:"select", options:PAY_TYPES },
+      { key:"commission_pct", label:"Service commission %", type:"number", step:"0.5", half:true, showIf: r => /Commission/.test(r.pay_type||"") },
+      { key:"product_commission_pct", label:"Retail commission %", type:"number", step:"0.5", half:true, showIf: r => /Commission/.test(r.pay_type||"") },
+      { key:"hourly_rate",    label:"Hourly rate ($)", type:"number", step:"0.01", half:true, showIf: r => /Hourly/.test(r.pay_type||"") },
+      { key:"booth_rent_weekly", label:"Booth rent per week ($)", type:"number", step:"0.01", half:true, showIf: r => r.pay_type === "Booth Rent" },
+      { key:"salary_annual",  label:"Annual salary ($)", type:"number", step:"1", half:true, showIf: r => r.pay_type === "Salary" },
+      { section: "Services they perform" },
+      { key:"service_ids", label:"", type:"multiref", ref:"services" },
+      { section: "Other" },
+      { key:"notes",       label:"Notes", type:"textarea" },
+      { key:"external_id", label:"ID in old system", type:"text" },
+    ],
+    title: r => staffName(r),
+    sub: r => [r.role, r.pay_type].filter(Boolean).join(" · "),
+    right: r => r.active === false ? '<span class="tag">Inactive</span>' : "",
+    rightIsHtml: true,
+    dot: r => r.calendar_color,
+    sort: (a,b) => (b.active!==false) - (a.active!==false) || (a.first_name||"").localeCompare(b.first_name||""),
+    searchText: r => [r.first_name,r.last_name,r.display_name,r.role,r.email,r.phone].join(" "),
+  },
+  services: {
+    label: "Services", singular: "Service",
+    fields: [
+      { key:"name",         label:"Service name", type:"text", required:true },
+      { key:"category",     label:"Category", type:"text", list:"categoryList", hint:"e.g. Cut, Color, Treatment, Nails" },
+      { key:"duration_min", label:"Duration (minutes)", type:"number", step:"5", half:true },
+      { key:"price",        label:"Price ($)", type:"number", step:"0.01", half:true },
+      { key:"price_from",   label:"Price is a starting price (“from $…”)", type:"checkbox" },
+      { key:"processing_min", label:"Processing time (min)", type:"number", step:"5", half:true, hint:"Time the stylist is free mid-service (e.g. color processing)." },
+      { key:"active",       label:"Offered / bookable", type:"checkbox", default:true },
+      { key:"description",  label:"Description", type:"textarea" },
+      { key:"external_id",  label:"ID in old system", type:"text" },
+    ],
+    title: r => r.name || "(unnamed)",
+    sub: r => [r.category, r.duration_min ? r.duration_min + " min" : ""].filter(Boolean).join(" · "),
+    right: r => r.price !== undefined && r.price !== "" ? (r.price_from ? "from " : "") + money(r.price) : "",
+    sort: (a,b) => (a.category||"").localeCompare(b.category||"") || (a.name||"").localeCompare(b.name||""),
+    searchText: r => [r.name, r.category, r.description].join(" "),
+  },
+};
+
+/* =====================================================================
+   DATA LAYER — the ONLY place that touches storage.
+   Today: this browser's localStorage. Later: swap these functions for
+   API calls to a hosted database; the rest of the app stays the same.
+   ===================================================================== */
+const STORAGE_KEY = "salonhub.v1";
+const DB = (() => {
+  let data;
+  function blank() { return { meta: { schema_version: 1, salon_name: "", created_at: now() }, clients: [], staff: [], services: [] }; }
+  function load() {
+    try { data = JSON.parse(localStorage.getItem(STORAGE_KEY)) || blank(); }
+    catch (e) { data = blank(); }
+    for (const t of Object.keys(SCHEMA)) data[t] = data[t] || [];
+    data.meta = data.meta || blank().meta;
+  }
+  function persist() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); return true; }
+    catch (e) { toast("⚠️ Couldn't save — storage is full or blocked"); return false; }
+  }
+  load();
+  return {
+    list: t => data[t].slice(),
+    get: (t, id) => id ? data[t].find(r => r.id === id) : undefined,
+    upsert(t, rec) {
+      const i = data[t].findIndex(r => r.id === rec.id);
+      if (i >= 0) data[t][i] = { ...data[t][i], ...rec, updated_at: now() };
+      else data[t].push({ ...rec, id: rec.id || uid(), created_at: now(), updated_at: now() });
+      persist();
+    },
+    bulkInsert(t, recs) { for (const r of recs) data[t].push({ ...r, id: uid(), created_at: now(), updated_at: now() }); persist(); },
+    remove(t, id) { data[t] = data[t].filter(r => r.id !== id); persist(); },
+    meta: () => data.meta,
+    setMeta(k, v) { data.meta[k] = v; persist(); },
+    exportAll: () => JSON.parse(JSON.stringify({ ...data, meta: { ...data.meta, exported_at: now() } })),
+    replaceAll(obj) {
+      if (!obj || typeof obj !== "object" || !Array.isArray(obj.clients)) throw new Error("Not a Salon Hub backup file");
+      data = { ...blank(), ...obj }; persist();
+    },
+    wipe() { data = blank(); persist(); },
+  };
+})();
+
+/* ===================== helpers ===================== */
+function uid() { return (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2)); }
+function now() { return new Date().toISOString(); }
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+function digits(s) { return String(s || "").replace(/\D/g, ""); }
+function phoneKey(s) { const d = digits(s); return d.length >= 10 ? d.slice(-10) : d; }
+function fmtPhone(s) { const d = phoneKey(s); return d.length === 10 ? `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}` : (s || ""); }
+function money(n) { const v = Number(n); return isNaN(v) ? "" : "$" + v.toFixed(v % 1 ? 2 : 0); }
+function fullName(r) { return [r.first_name, r.last_name].filter(Boolean).join(" "); }
+function staffName(r) { return r.display_name || fullName(r) || "(no name)"; }
+function norm(s) { return String(s || "").toLowerCase().replace(/[^a-z0-9]/g, ""); }
+let toastTimer;
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2200); }
+function $(s, root = document) { return root.querySelector(s); }
+function $$(s, root = document) { return [...root.querySelectorAll(s)]; }
+function download(name, text, type) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+function today() { return new Date().toISOString().slice(0, 10); }
+
+/* ===================== app state / navigation ===================== */
+let tab = "clients";
+$$("nav.tabs button").forEach(b => b.onclick = () => { tab = b.dataset.tab; $("#search").value = ""; render(); });
+$("#search").oninput = () => renderList();
+$("#addBtn").onclick = () => openForm(tab);
+$("#sheetBg").onclick = closeSheet;
+
+function render() {
+  $$("nav.tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  $("#salonName").textContent = DB.meta().salon_name || "Salon Hub";
+  $("#tabTitle").textContent = tab === "data" ? "Data & Settings" : SCHEMA[tab].label;
+  $("#toolbar").style.display = tab === "data" ? "none" : "";
+  if (tab === "data") renderData(); else renderList();
+}
+
+function renderList() {
+  const S = SCHEMA[tab], q = $("#search").value.trim().toLowerCase();
+  let rows = DB.list(tab).sort(S.sort);
+  const total = rows.length;
+  if (q) { const qd = digits(q); rows = rows.filter(r => { const t = S.searchText(r).toLowerCase(); return t.includes(q) || (qd.length >= 3 && t.includes(qd)); }); }
+  $("#search").placeholder = `Search ${total} ${S.label.toLowerCase()}…`;
+  if (!total) {
+    $("#view").innerHTML = `<div class="empty">No ${S.label.toLowerCase()} yet.<br><br>
+      <button class="primary" onclick="openForm('${tab}')">Add ${S.singular.toLowerCase()}</button><br><br>
+      <button class="link" onclick="tab='data';render()">or import a CSV</button></div>`;
+    return;
+  }
+  $("#view").innerHTML = `<div class="list">${rows.map(r => {
+    const dot = S.dot ? S.dot(r) : null, right = S.right ? S.right(r) : "";
+    return `<div class="item" data-id="${esc(r.id)}">
+      ${S.dot ? `<span class="dot" style="background:${esc(dot || "var(--line)")}"></span>` : ""}
+      <div class="main"><div class="title">${esc(S.title(r))}</div><div class="sub">${esc(S.sub(r)) || "&nbsp;"}</div></div>
+      <div class="right">${S.rightIsHtml ? right : esc(right)}</div></div>`;
+  }).join("")}</div>${rows.length ? "" : `<div class="empty">No matches.</div>`}`;
+  $$(".item", $("#view")).forEach(el => el.onclick = () => openForm(tab, el.dataset.id));
+}
+
+/* ===================== forms (generated from SCHEMA) ===================== */
+function openSheet(html) { $("#sheet").innerHTML = html; $("#sheetBg").classList.add("open"); $("#sheet").classList.add("open"); $("#sheet").scrollTop = 0; }
+function closeSheet() { $("#sheetBg").classList.remove("open"); $("#sheet").classList.remove("open"); }
+
+function fieldHtml(f, rec) {
+  if (f.section) return `<div class="section-title">${esc(f.section)}</div>`;
+  const v = rec[f.key] ?? (rec.id ? "" : f.default ?? "");
+  const id = "f_" + f.key, req = f.required ? " required" : "";
+  const hint = f.hint ? `<div class="hint">${esc(f.hint)}</div>` : "";
+  const wrapStart = `<div class="field${f.type === "checkbox" ? " check" : ""}" data-key="${f.key}"${f.half ? ' data-half="1"' : ""}>`;
+  const lbl = f.label ? `<label class="lbl" for="${id}">${esc(f.label)}${f.required ? " *" : ""}</label>` : "";
+  switch (f.type) {
+    case "textarea": return `${wrapStart}${lbl}<textarea id="${id}" name="${f.key}">${esc(v)}</textarea>${hint}</div>`;
+    case "checkbox": return `${wrapStart}<label><input type="checkbox" id="${id}" name="${f.key}" ${(rec.id ? rec[f.key] : (rec[f.key] ?? f.default)) ? "checked" : ""}>${esc(f.label)}</label>${hint}</div>`;
+    case "select": return `${wrapStart}${lbl}<select id="${id}" name="${f.key}"><option value="">—</option>${f.options.map(o => `<option ${o === v ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>${hint}</div>`;
+    case "ref": {
+      const opts = DB.list(f.ref).filter(r => r.active !== false || r.id === v).sort(SCHEMA[f.ref].sort);
+      return `${wrapStart}${lbl}<select id="${id}" name="${f.key}"><option value="">— none —</option>${opts.map(o => `<option value="${esc(o.id)}" ${o.id === v ? "selected" : ""}>${esc(SCHEMA[f.ref].title(o))}</option>`).join("")}</select>${hint}</div>`;
+    }
+    case "multiref": {
+      const sel = new Set(rec[f.key] || []), opts = DB.list(f.ref).sort(SCHEMA[f.ref].sort);
+      if (!opts.length) return `${wrapStart}<div class="hint">Add services in the Services tab, then come back to assign them.</div></div>`;
+      return `${wrapStart}${lbl}<div class="checks">${opts.map(o => `<label><input type="checkbox" name="${f.key}" value="${esc(o.id)}" ${sel.has(o.id) ? "checked" : ""}>${esc(SCHEMA[f.ref].title(o))}</label>`).join("")}</div>${hint}</div>`;
+    }
+    default: {
+      const extra = (f.step ? ` step="${f.step}" inputmode="decimal"` : "") + (f.list ? ` list="${f.list}"` : "");
+      const val = f.type === "color" && !v ? PALETTE[DB.list("staff").length % PALETTE.length] : v;
+      return `${wrapStart}${lbl}<input id="${id}" name="${f.key}" type="${f.type}" value="${esc(val)}"${req}${extra}>${hint}</div>`;
+    }
+  }
+}
+
+// Group consecutive half-width fields into 2-column rows.
+function layoutFields(fields, rec) {
+  let out = "", buf = [];
+  const flush = () => { if (buf.length) { out += `<div class="grid2">${buf.join("")}</div>`; buf = []; } };
+  for (const f of fields) { const h = fieldHtml(f, rec); if (f.half) buf.push(h); else { flush(); out += h; } }
+  flush(); return out;
+}
+
+function readForm(t, form) {
+  const rec = {};
+  for (const f of SCHEMA[t].fields) {
+    if (!f.key) continue;
+    if (f.type === "checkbox") rec[f.key] = !!form.elements[f.key]?.checked;
+    else if (f.type === "multiref") rec[f.key] = $$(`input[name="${f.key}"]:checked`, form).map(i => i.value);
+    else if (f.type === "number") { const s = form.elements[f.key]?.value; rec[f.key] = s === "" || s == null ? "" : Number(s); }
+    else rec[f.key] = (form.elements[f.key]?.value ?? "").trim();
+  }
+  return rec;
+}
+
+function applyShowIf(t, form) {
+  const cur = readForm(t, form);
+  for (const f of SCHEMA[t].fields) if (f.showIf) { const el = $(`.field[data-key="${f.key}"]`, form); if (el) el.style.display = f.showIf(cur) ? "" : "none"; }
+}
+
+function openForm(t, id) {
+  const S = SCHEMA[t], rec = id ? DB.get(t, id) : {};
+  const cats = [...new Set(DB.list("services").map(s => s.category).filter(Boolean))];
+  openSheet(`<form id="recForm" novalidate>
+    <div class="sheet-head"><button type="button" onclick="closeSheet()">Cancel</button>
+      <h2>${id ? esc(S.title(rec)) : "New " + esc(S.singular.toLowerCase())}</h2>
+      <button class="primary" type="submit">Save</button></div>
+    ${layoutFields(S.fields, rec)}
+    <datalist id="categoryList">${cats.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
+    ${id ? `<div class="notice">Added ${new Date(rec.created_at).toLocaleDateString()} · Last updated ${new Date(rec.updated_at).toLocaleString()}</div>
+      <br><button type="button" class="danger" id="delBtn">Delete ${esc(S.singular.toLowerCase())}</button>` : ""}
+  </form>`);
+  const form = $("#recForm");
+  applyShowIf(t, form);
+  form.onchange = () => applyShowIf(t, form);
+  form.onsubmit = e => {
+    e.preventDefault();
+    const data = readForm(t, form);
+    const missing = S.fields.filter(f => f.required && !data[f.key]);
+    if (missing.length) { toast(missing.map(f => f.label).join(", ") + " required"); return; }
+    if (t === "clients" && !id) {
+      const dupe = findClientDupe(data);
+      if (dupe && !confirm(`${fullName(dupe)} already has this ${phoneKey(dupe.phone) && phoneKey(dupe.phone) === phoneKey(data.phone) ? "phone number" : "email"}. Save anyway?`)) return;
+    }
+    DB.upsert(t, id ? { ...data, id } : data);
+    closeSheet(); render(); toast("Saved");
+  };
+  if (id) $("#delBtn").onclick = () => {
+    if (!confirm(`Delete ${S.title(rec)}? This can't be undone.`)) return;
+    DB.remove(t, id);
+    // clean up references to deleted records
+    if (t === "staff") DB.list("clients").filter(c => c.preferred_staff_id === id).forEach(c => DB.upsert("clients", { ...c, preferred_staff_id: "" }));
+    if (t === "services") DB.list("staff").filter(s => (s.service_ids || []).includes(id)).forEach(s => DB.upsert("staff", { ...s, service_ids: s.service_ids.filter(x => x !== id) }));
+    closeSheet(); render(); toast("Deleted");
+  };
+}
+
+function findClientDupe(c) {
+  const p = phoneKey(c.phone), e = (c.email || "").toLowerCase();
+  return DB.list("clients").find(r => (p.length >= 7 && phoneKey(r.phone) === p) || (e && (r.email || "").toLowerCase() === e));
+}
+
+/* ===================== Data tab ===================== */
+function renderData() {
+  const m = DB.meta(), n = t => DB.list(t).length;
+  $("#view").innerHTML = `
+    <div class="stats">
+      <div class="stat"><b>${n("clients")}</b><span>Clients</span></div>
+      <div class="stat"><b>${n("staff")}</b><span>Staff</span></div>
+      <div class="stat"><b>${n("services")}</b><span>Services</span></div>
+    </div>
+    <div class="card"><h2>Salon name</h2>
+      <div class="row"><input id="salonInput" value="${esc(m.salon_name)}" placeholder="Your salon's name"><button class="primary" id="salonSave">Save</button></div></div>
+    <div class="card"><h2>Import from your current platform</h2>
+      <p>Export clients, staff or services as a CSV from your booking platform, then import it here. Columns are matched automatically and you can adjust them before importing.</p>
+      <div class="row">
+        <button onclick="pickCsv('clients')">Clients CSV</button>
+        <button onclick="pickCsv('staff')">Staff CSV</button>
+        <button onclick="pickCsv('services')">Services CSV</button>
+      </div></div>
+    <div class="card"><h2>Backup</h2>
+      <p>Everything is stored <b>only in this browser on this device</b>. Download a backup regularly, and use it to move your data to another device.${m.last_backup ? ` Last backup: ${new Date(m.last_backup).toLocaleString()}.` : " <b>No backup yet.</b>"}</p>
+      <div class="row"><button class="primary" id="backupBtn">Download backup</button><button id="restoreBtn">Restore backup</button></div></div>
+    <div class="card"><h2>Export to spreadsheet</h2>
+      <p>CSV files open in Excel, Numbers or Google Sheets.</p>
+      <div class="row">
+        <button onclick="exportCsv('clients')">Clients</button>
+        <button onclick="exportCsv('staff')">Staff</button>
+        <button onclick="exportCsv('services')">Services</button>
+      </div></div>
+    <div class="card"><h2>Danger zone</h2>
+      <p>Erase all data stored in this browser.</p>
+      <button class="danger" id="wipeBtn">Erase everything</button></div>
+    <div class="notice">Don't enter Social Security numbers, bank account details, or other payroll/tax info here; those stay with your payroll provider.</div>`;
+  $("#salonSave").onclick = () => { DB.setMeta("salon_name", $("#salonInput").value.trim()); render(); toast("Saved"); };
+  $("#backupBtn").onclick = () => {
+    download(`salon-hub-backup-${today()}.json`, JSON.stringify(DB.exportAll(), null, 2), "application/json");
+    DB.setMeta("last_backup", now()); renderData();
+  };
+  $("#restoreBtn").onclick = () => pickFile(".json,application/json", text => {
+    let obj; try { obj = JSON.parse(text); } catch { return toast("That file isn't valid JSON"); }
+    if (!confirm("Replace ALL current data with this backup?")) return;
+    try { DB.replaceAll(obj); render(); toast("Backup restored"); } catch (e) { toast(e.message); }
+  });
+  $("#wipeBtn").onclick = () => {
+    if (prompt('This erases every client, staff member and service in this browser. Type ERASE to confirm.') !== "ERASE") return;
+    DB.wipe(); render(); toast("All data erased");
+  };
+}
+
+function pickFile(accept, cb) {
+  const fi = $("#fileInput"); fi.accept = accept; fi.value = "";
+  fi.onchange = () => { const f = fi.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => cb(String(rd.result)); rd.readAsText(f); };
+  fi.click();
+}
+
+/* ===================== CSV ===================== */
+function parseCsv(text) {
+  text = text.replace(/^﻿/, "");
+  const delim = (text.split("\n")[0].match(/\t/g) || []).length > (text.split("\n")[0].match(/,/g) || []).length ? "\t" : ",";
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true;
+    else if (c === delim) { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(c => c.trim() !== ""));
+}
+function toCsv(rows) { return rows.map(r => r.map(v => { const s = String(v ?? ""); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; }).join(",")).join("\r\n"); }
+
+// Common header names used by booking platforms, mapped to our fields.
+const ALIASES = {
+  first_name: ["firstname","first","fname","givenname","clientfirstname","customerfirstname"],
+  last_name: ["lastname","last","lname","surname","familyname","clientlastname","customerlastname"],
+  _full_name: ["name","fullname","clientname","customername","client","customer","staffname","employeename","employee"],
+  phone: ["phone","mobile","mobilephone","cell","cellphone","phonenumber","mobilenumber","primaryphone","telephone"],
+  email: ["email","emailaddress","mail"],
+  birthday: ["birthday","birthdate","dob","dateofbirth"],
+  notes: ["notes","note","comments","comment","clientnotes"],
+  formula_notes: ["formula","formulas","colorformula","colornotes","formulanotes"],
+  allergies: ["allergies","allergy","sensitivities","medicalnotes"],
+  external_id: ["id","clientid","customerid","staffid","employeeid","serviceid","externalid","recordid"],
+  role: ["role","title","jobtitle","position"],
+  start_date: ["startdate","hiredate","datehired"],
+  name: ["service","servicename","name","title"],
+  category: ["category","servicecategory","group","type"],
+  duration_min: ["duration","durationmin","durationminutes","length","minutes","time"],
+  price: ["price","cost","amount","serviceprice","rate"],
+  sms_opt_in: ["smsoptin","textoptin","acceptssms","smsmarketing","textmarketing"],
+  email_opt_in: ["emailoptin","acceptsemail","emailmarketing","marketingemail"],
+  preferred_staff_id: ["preferredstaff","preferredstylist","stylist","provider","preferredprovider"],
+};
+function importableFields(t) {
+  const base = SCHEMA[t].fields.filter(f => f.key && f.type !== "multiref").map(f => ({ key: f.key, label: f.label }));
+  if (t !== "services") base.unshift({ key: "_full_name", label: "Full name (split into first/last)" });
+  return base;
+}
+function guessField(t, header) {
+  const h = norm(header), fields = importableFields(t);
+  const direct = fields.find(f => norm(f.key) === h || norm(f.label) === h);
+  if (direct) return direct.key;
+  for (const f of fields) if ((ALIASES[f.key] || []).includes(h)) return f.key;
+  return "";
+}
+function toIsoDate(s) {
+  s = String(s || "").trim(); if (!s) return "";
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.](\d{2,4}))?$/);
+  if (m) { let y = m[3] ? +m[3] : 1900; if (y < 100) y += y > 30 ? 1900 : 2000; return `${y}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`; }
+  const d = new Date(s); return isNaN(d) ? "" : d.toISOString().slice(0, 10);
+}
+function truthy(s) { return /^(y|yes|true|1|x|opted ?in|subscribed)$/i.test(String(s).trim()); }
+
+function pickCsv(t) { pickFile(".csv,.tsv,.txt,text/csv", text => showImport(t, parseCsv(text))); }
+
+function showImport(t, rows) {
+  if (rows.length < 2) return toast("No rows found in that file");
+  const headers = rows[0], body = rows.slice(1), fields = importableFields(t);
+  const opts = sel => `<option value="">— skip —</option>` + fields.map(f => `<option value="${f.key}" ${f.key === sel ? "selected" : ""}>${esc(f.label)}</option>`).join("");
+  openSheet(`<div class="sheet-head"><button onclick="closeSheet()">Cancel</button><h2>Import ${SCHEMA[t].label.toLowerCase()}</h2><button class="primary" id="doImport">Import</button></div>
+    <p class="hint" style="color:var(--muted)">${body.length} rows found. Match each column in your file to a Salon Hub field.</p>
+    <div class="map-row" style="font-weight:700;color:var(--muted)"><span>Your column (example)</span><span>Salon Hub field</span></div>
+    ${headers.map((h, i) => `<div class="map-row"><span><b>${esc(h)}</b><br><small style="color:var(--muted)">${esc((body.find(r => r[i]) || [])[i] || "")}</small></span><select data-col="${i}">${opts(guessField(t, h))}</select></div>`).join("")}
+    ${t === "clients" ? `<div class="field check" style="margin-top:12px"><label><input type="checkbox" id="skipDupes" checked>Skip clients whose phone or email already exists</label></div>` : ""}`);
+  $("#doImport").onclick = () => {
+    const map = $$("select[data-col]").map(s => ({ col: +s.dataset.col, key: s.value })).filter(m => m.key);
+    if (!map.length) return toast("Match at least one column");
+    const staffByName = Object.fromEntries(DB.list("staff").flatMap(s => [[norm(fullName(s)), s.id], [norm(s.display_name), s.id], [norm(s.first_name), s.id]]).filter(([k]) => k));
+    const numKeys = new Set(SCHEMA[t].fields.filter(f => f.type === "number").map(f => f.key));
+    const boolKeys = new Set(SCHEMA[t].fields.filter(f => f.type === "checkbox").map(f => f.key));
+    const dateKeys = new Set(SCHEMA[t].fields.filter(f => f.type === "date").map(f => f.key));
+    const out = []; let skipped = 0;
+    const skipDupes = $("#skipDupes")?.checked;
+    const seen = new Set();
+    for (const r of body) {
+      const rec = {};
+      for (const f of SCHEMA[t].fields) if (f.key && f.default !== undefined) rec[f.key] = f.default;
+      for (const { col, key } of map) {
+        let v = (r[col] ?? "").trim(); if (v === "") continue;
+        if (key === "_full_name") { const parts = v.includes(",") ? v.split(",").map(s => s.trim()).reverse() : v.split(/\s+/); rec.first_name = rec.first_name || parts[0]; rec.last_name = rec.last_name || parts.slice(1).join(" "); continue; }
+        if (numKeys.has(key)) { const n = parseFloat(v.replace(/[^0-9.\-]/g, "")); if (!isNaN(n)) rec[key] = n; continue; }
+        if (boolKeys.has(key)) { rec[key] = truthy(v); continue; }
+        if (dateKeys.has(key)) { rec[key] = toIsoDate(v); continue; }
+        if (key === "preferred_staff_id") { rec[key] = staffByName[norm(v)] || ""; if (!rec[key]) rec.notes = [rec.notes, `Preferred stylist (from import): ${v}`].filter(Boolean).join("\n"); continue; }
+        rec[key] = v;
+      }
+      const reqKey = SCHEMA[t].fields.find(f => f.required).key;
+      if (!rec[reqKey]) { skipped++; continue; }
+      if (t === "clients" && skipDupes) {
+        const k = phoneKey(rec.phone) || (rec.email || "").toLowerCase();
+        if (findClientDupe(rec) || (k && seen.has(k))) { skipped++; continue; }
+        if (k) seen.add(k);
+      }
+      out.push(rec);
+    }
+    DB.bulkInsert(t, out);
+    closeSheet(); tab = t; render();
+    toast(`Imported ${out.length}${skipped ? `, skipped ${skipped}` : ""}`);
+  };
+}
+
+function exportCsv(t) {
+  const fields = SCHEMA[t].fields.filter(f => f.key);
+  const rows = DB.list(t).sort(SCHEMA[t].sort);
+  if (!rows.length) return toast("Nothing to export yet");
+  const cell = (f, r) => {
+    const v = r[f.key];
+    if (f.type === "ref") { const x = DB.get(f.ref, v); return x ? SCHEMA[f.ref].title(x) : ""; }
+    if (f.type === "multiref") return (v || []).map(id => DB.get(f.ref, id)).filter(Boolean).map(SCHEMA[f.ref].title).join("; ");
+    if (f.type === "checkbox") return v ? "Yes" : "No";
+    return v ?? "";
+  };
+  download(`${t}-${today()}.csv`, toCsv([["id", ...fields.map(f => f.label)], ...rows.map(r => [r.id, ...fields.map(f => cell(f, r))])]), "text/csv");
+}
+
+render();
+</script>
+</body>
+</html>
